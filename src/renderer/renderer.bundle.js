@@ -29196,7 +29196,6 @@ ${text}</tr>
     if (allDefaults.some((d) => d.model === modelInput.value)) {
       modelInput.value = defaults2.model;
     }
-    loadOllamaModels();
   }
   async function loadOllamaModels() {
     const provider = document.getElementById("settings-provider").value;
@@ -29248,7 +29247,10 @@ ${text}</tr>
       enabled: document.getElementById("settings-ai-enabled").checked
     };
   }
-  document.getElementById("settings-provider").addEventListener("change", updateSettingsDefaults);
+  document.getElementById("settings-provider").addEventListener("change", async () => {
+    updateSettingsDefaults();
+    await loadOllamaModels();
+  });
   document.getElementById("settings-temperature").addEventListener("input", (e) => {
     document.getElementById("settings-temperature-val").textContent = e.target.value;
   });

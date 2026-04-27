@@ -1166,7 +1166,6 @@ function updateSettingsDefaults() {
   if (allDefaults.some(d => d.model === modelInput.value)) {
     modelInput.value = defaults.model
   }
-  loadOllamaModels()
 }
 
 async function loadOllamaModels() {
@@ -1229,7 +1228,10 @@ function gatherSettingsConfig() {
   }
 }
 
-document.getElementById('settings-provider').addEventListener('change', updateSettingsDefaults)
+document.getElementById('settings-provider').addEventListener('change', async () => {
+  updateSettingsDefaults()
+  await loadOllamaModels()
+})
 
 document.getElementById('settings-temperature').addEventListener('input', (e) => {
   document.getElementById('settings-temperature-val').textContent = e.target.value
