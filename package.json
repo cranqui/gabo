@@ -7,9 +7,16 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
-    "build:mac": "electron-builder --mac"
+    "build:mac": "electron-builder --mac",
+    "bundle": "esbuild src/renderer/renderer.js --bundle --outfile=src/renderer/renderer.bundle.js --platform=browser --format=iife --target=chrome110"
   },
-  "keywords": ["markdown", "editor", "minimalist", "distraction-free", "writing"],
+  "keywords": [
+    "markdown",
+    "editor",
+    "minimalist",
+    "distraction-free",
+    "writing"
+  ],
   "author": "Deibis",
   "license": "MIT",
   "repository": {
@@ -18,15 +25,16 @@
   },
   "devDependencies": {
     "electron": "^34.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "esbuild": "^0.28.0"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.7.0",
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/language-data": "^6.5.0",
-    "codemirror": "^6.0.0",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.35.0",
-    "@codemirror/commands": "^6.7.0",
+    "codemirror": "^6.0.0",
     "marked": "^15.0.0"
   }
 }
