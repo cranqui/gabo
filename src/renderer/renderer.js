@@ -296,6 +296,32 @@ class ImageWidget extends WidgetType {
   eq(other) { return this.alt === other.alt && this.url === other.url }
 }
 
+// ── Heading line spacing plugin ──
+// Adds cm-line-heading-1/2/3 class to lines (for CSS margin-top)
+const headingLinePlugin = ViewPlugin.fromClass(class {
+  constructor(view) { this.decorations = this.buildDecorations(view) }
+  update(update) {
+    if (update.docChanged || update.viewportChanged) {
+      this.decorations = this.buildDecorations(update.view)
+    }
+  }
+  buildDecorations(view) {
+    const decorations = []
+    for (let i = 1; i <= view.state.doc.lines; i++) {
+      const line = view.state.doc.line(i)
+      const text = line.text.trimStart()
+      if (text.startsWith('### ')) {
+        decorations.push(Decoration.line({ class: 'cm-line-heading-3' }).range(line.from))
+      } else if (text.startsWith('## ')) {
+        decorations.push(Decoration.line({ class: 'cm-line-heading-2' }).range(line.from))
+      } else if (text.startsWith('# ')) {
+        decorations.push(Decoration.line({ class: 'cm-line-heading-1' }).range(line.from))
+      }
+    }
+    return Decoration.set(decorations, true)
+  }
+}, { decorations: v => v.decorations })
+
 // ── Checkbox widget ──
 class CheckboxWidget extends WidgetType {
   constructor(checked) { super(); this.checked = checked }
@@ -454,6 +480,7 @@ function createEditor(content = '') {
         closeBrackets(),
         checkboxPlugin,
         syntaxHidingPlugin,
+        headingLinePlugin,
         focusModePlugin,
         typewriterScroll,
         EditorView.lineWrapping,

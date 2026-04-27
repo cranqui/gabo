@@ -53,6 +53,14 @@
       --link-color: var(--accent);
     }
 
+    /* ═══ Smooth dark/light theme transition ═══ */
+    .cm-editor, .cm-editor .cm-content, .cm-editor .cm-line,
+    .cm-editor .cm-visual-code, .cm-editor .cm-visual-link,
+    .cm-editor .cm-token-faded, .cm-editor .cm-blockquote-line,
+    #statusbar, #word-count, .icon-btn, .palette-overlay, .palette-box {
+      transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
     html, body {
       height: 100%;
       overflow: hidden;
@@ -60,6 +68,7 @@
       background: var(--bg-main);
       color: var(--text-primary);
       -webkit-font-smoothing: antialiased;
+      transition: background 0.25s ease, color 0.25s ease;
     }
 
     #titlebar {
@@ -70,7 +79,7 @@
       padding: 0 12px 0 80px; /* 80px left: space for macOS traffic light buttons */
       background: var(--bg-main);
       border-bottom: 1px solid var(--border);
-      transition: opacity 0.3s;
+      transition: opacity 0.3s, background 0.25s ease, border-color 0.25s ease;
     }
     .zen-mode #titlebar { opacity: 0; height: 0; min-height: 0; border: none; padding: 0; overflow: hidden; }
     .zen-mode #titlebar:hover { opacity: 1; height: 38px; min-height: 38px; padding: 0 12px 0 80px; border-bottom: 1px solid var(--border); }
@@ -132,7 +141,7 @@
       color: var(--text-secondary);
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.15s;
       -webkit-app-region: no-drag;
       flex-shrink: 0;
     }
@@ -172,6 +181,7 @@
       color: var(--text-primary) !important;
       background: transparent !important;
       height: auto !important;
+      transition: background 0.25s ease, color 0.25s ease;
     }
     .cm-editor .cm-content { padding: 0 !important; caret-color: var(--accent) !important; }
     .cm-editor .cm-cursor { border-left-color: var(--accent) !important; border-left-width: 2px !important; }
@@ -222,10 +232,10 @@
       letter-spacing: var(--letter-spacing) !important;
     }
 
-    /* Heading line spacing — adds margin above/below heading lines */
-    .cm-editor .cm-line-heading-1 { margin-top: 1.5em !important; }
-    .cm-editor .cm-line-heading-2 { margin-top: 1.2em !important; }
-    .cm-editor .cm-line-heading-3 { margin-top: 1em !important; }
+    /* Heading line spacing — adds margin above heading lines for visual rhythm */
+    .cm-editor .cm-line-heading-1 { margin-top: 2em !important; margin-bottom: 0.4em !important; }
+    .cm-editor .cm-line-heading-2 { margin-top: 1.6em !important; margin-bottom: 0.3em !important; }
+    .cm-editor .cm-line-heading-3 { margin-top: 1.2em !important; margin-bottom: 0.2em !important; }
 
     /* ═══ Blockquote ═══ */
     .cm-editor .cm-blockquote-line {

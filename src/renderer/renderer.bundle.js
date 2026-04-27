@@ -28366,6 +28366,31 @@ ${text}</tr>
       return this.alt === other2.alt && this.url === other2.url;
     }
   };
+  var headingLinePlugin = ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.decorations = this.buildDecorations(view);
+    }
+    update(update) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = this.buildDecorations(update.view);
+      }
+    }
+    buildDecorations(view) {
+      const decorations2 = [];
+      for (let i = 1; i <= view.state.doc.lines; i++) {
+        const line = view.state.doc.line(i);
+        const text = line.text.trimStart();
+        if (text.startsWith("### ")) {
+          decorations2.push(Decoration.line({ class: "cm-line-heading-3" }).range(line.from));
+        } else if (text.startsWith("## ")) {
+          decorations2.push(Decoration.line({ class: "cm-line-heading-2" }).range(line.from));
+        } else if (text.startsWith("# ")) {
+          decorations2.push(Decoration.line({ class: "cm-line-heading-1" }).range(line.from));
+        }
+      }
+      return Decoration.set(decorations2, true);
+    }
+  }, { decorations: (v) => v.decorations });
   var CheckboxWidget = class extends WidgetType {
     constructor(checked) {
       super();
@@ -28539,6 +28564,7 @@ ${text}</tr>
           closeBrackets(),
           checkboxPlugin,
           syntaxHidingPlugin,
+          headingLinePlugin,
           focusModePlugin,
           typewriterScroll,
           EditorView.lineWrapping,
