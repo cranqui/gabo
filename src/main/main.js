@@ -423,7 +423,6 @@ ipcMain.handle('ai-request-variations', async (event, { action, selectedText, cu
   variationAbortControllers.length = 0
 
   const CHUNK_TIMEOUT_MS = 15000
-  const completedVariations = new Set()
 
   const allDone = VARIATION_TEMPS.map((tempOffset, i) => {
     return new Promise((resolve) => {
@@ -465,7 +464,6 @@ ipcMain.handle('ai-request-variations', async (event, { action, selectedText, cu
         onDone: () => {
           clearTimeout(chunkTimer)
           event.sender.send('ai-variation-done', { index: i })
-          completedVariations.add(i)
           resolve()
         },
         onError: (err) => {
