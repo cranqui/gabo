@@ -28618,7 +28618,12 @@ ${text}</tr>
             // ── Headings ──
             { key: "Mod-1", run: (view) => toggleHeading(view, 1) },
             { key: "Mod-2", run: (view) => toggleHeading(view, 2) },
-            { key: "Mod-3", run: (view) => toggleHeading(view, 3) }
+            { key: "Mod-3", run: (view) => toggleHeading(view, 3) },
+            // ── AI Assist ──
+            { key: "Mod-j", run: () => {
+              openAiPanel();
+              return true;
+            } }
           ]),
           closeBrackets(),
           checkboxPlugin,
@@ -28778,7 +28783,8 @@ ${text}</tr>
     { icon: "\u2325", label: "Toggle Markdown", kbd: "\u2318\u21E7M", action: () => toggleMdMode() },
     { icon: "\u25D1", label: "Toggle Dark Mode", kbd: "\u2318\u21E7D", action: () => toggleDarkMode() },
     { icon: "\u2197", label: "Export PDF", kbd: "\u2318\u21E7P", action: () => exportPdf() },
-    { icon: "?", label: "Markdown Reference", kbd: "\u2318\u21E7/", action: () => openHelp() }
+    { icon: "?", label: "Markdown Reference", kbd: "\u2318\u21E7/", action: () => openHelp() },
+    { icon: "\u2728", label: "AI Assist", kbd: "\u2318J", action: () => openAiPanel() }
   ];
   var paletteSelectedIndex = 0;
   var paletteFiltered = [...PALETTE_COMMANDS];
@@ -28963,6 +28969,173 @@ ${text}</tr>
   document.getElementById("switcher-overlay").addEventListener("click", (e) => {
     if (e.target === document.getElementById("switcher-overlay")) closeSwitcher();
   });
+  var aiOriginalText = "";
+  var aiResultText = "";
+  var aiSelectionFrom = null;
+  var aiSelectionTo = null;
+  var aiCurrentAction = null;
+  var aiIsStreaming = false;
+  function openAiPanel() {
+    if (editor) {
+      const sel = editor.state.selection.main;
+      aiSelectionFrom = sel.from;
+      aiSelectionTo = sel.to;
+      aiOriginalText = editor.state.sliceDoc(sel.from, sel.to);
+    } else {
+      aiOriginalText = "";
+      aiSelectionFrom = null;
+      aiSelectionTo = null;
+    }
+    document.getElementById("ai-original-text").textContent = aiOriginalText || "(no text selected)";
+    document.getElementById("ai-result-text").textContent = "";
+    document.getElementById("ai-prompt-input").value = "";
+    document.getElementById("ai-response").classList.add("hidden");
+    document.getElementById("ai-actions-bar").classList.add("hidden");
+    document.getElementById("ai-stop-bar").classList.add("hidden");
+    document.getElementById("ai-loading").classList.add("hidden");
+    document.getElementById("ai-error").classList.add("hidden");
+    aiResultText = "";
+    aiIsStreaming = false;
+    const actionsDiv = document.getElementById("ai-actions");
+    const customDiv = document.getElementById("ai-custom");
+    if (aiOriginalText) {
+      actionsDiv.classList.remove("hidden");
+      customDiv.classList.remove("hidden");
+    } else {
+      actionsDiv.classList.add("hidden");
+      customDiv.classList.remove("hidden");
+    }
+    document.getElementById("ai-overlay").classList.add("open");
+    if (!aiOriginalText) {
+      document.getElementById("ai-prompt-input").focus();
+    }
+  }
+  function closeAiPanel() {
+    document.getElementById("ai-overlay").classList.remove("open");
+    if (aiIsStreaming) {
+      window.gaboAPI.aiCancel();
+      aiIsStreaming = false;
+    }
+    if (editor) editor.focus();
+  }
+  async function sendAiRequest(action, customPromptText) {
+    if (aiIsStreaming) return;
+    aiCurrentAction = action;
+    aiIsStreaming = true;
+    aiResultText = "";
+    let textToSend = aiOriginalText;
+    if (!textToSend && editor) {
+      const pos = editor.state.selection.main.head;
+      const start = Math.max(0, pos - 2e3);
+      const end = Math.min(editor.state.doc.length, pos + 2e3);
+      textToSend = editor.state.sliceDoc(start, end);
+    }
+    document.getElementById("ai-actions").classList.add("hidden");
+    document.getElementById("ai-custom").classList.add("hidden");
+    document.getElementById("ai-response").classList.remove("hidden");
+    document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
+    document.getElementById("ai-result-text").textContent = "";
+    document.getElementById("ai-streaming-cursor").classList.remove("hidden");
+    document.getElementById("ai-loading").classList.add("hidden");
+    document.getElementById("ai-actions-bar").classList.add("hidden");
+    document.getElementById("ai-stop-bar").classList.remove("hidden");
+    document.getElementById("ai-error").classList.add("hidden");
+    const promptForCustom = action === "custom" ? customPromptText : null;
+    window.gaboAPI.onAiChunk((text) => {
+      aiResultText += text;
+      document.getElementById("ai-result-text").textContent = aiResultText;
+      const resultEl = document.getElementById("ai-result-text");
+      resultEl.scrollTop = resultEl.scrollHeight;
+    });
+    window.gaboAPI.onAiDone(() => {
+      aiIsStreaming = false;
+      document.getElementById("ai-streaming-cursor").classList.add("hidden");
+      document.getElementById("ai-stop-bar").classList.add("hidden");
+      document.getElementById("ai-actions-bar").classList.remove("hidden");
+    });
+    window.gaboAPI.onAiError((errMsg) => {
+      aiIsStreaming = false;
+      document.getElementById("ai-response").classList.add("hidden");
+      document.getElementById("ai-loading").classList.add("hidden");
+      document.getElementById("ai-stop-bar").classList.add("hidden");
+      document.getElementById("ai-error-text").textContent = errMsg;
+      document.getElementById("ai-error").classList.remove("hidden");
+    });
+    await window.gaboAPI.aiRequest(action, textToSend, promptForCustom);
+  }
+  function aiReplace() {
+    if (!editor || !aiResultText) return;
+    if (aiOriginalText && aiSelectionFrom !== null) {
+      editor.dispatch({
+        changes: { from: aiSelectionFrom, to: aiSelectionTo, insert: aiResultText },
+        annotations: Transaction.userEvent.of("input.ai")
+      });
+    } else {
+      const pos = editor.state.selection.main.head;
+      editor.dispatch({
+        changes: { from: pos, insert: aiResultText },
+        annotations: Transaction.userEvent.of("input.ai")
+      });
+    }
+    closeAiPanel();
+  }
+  function aiInsertBelow() {
+    if (!editor || !aiResultText) return;
+    const pos = editor.state.selection.main.head;
+    const line = editor.state.doc.lineAt(pos);
+    editor.dispatch({
+      changes: { from: line.to, insert: "\n\n" + aiResultText },
+      annotations: Transaction.userEvent.of("input.ai")
+    });
+    closeAiPanel();
+  }
+  function aiCopy() {
+    if (!aiResultText) return;
+    navigator.clipboard.writeText(aiResultText);
+    closeAiPanel();
+  }
+  function aiDiscard() {
+    closeAiPanel();
+  }
+  function aiStop() {
+    window.gaboAPI.aiCancel();
+    aiIsStreaming = false;
+    document.getElementById("ai-streaming-cursor").classList.add("hidden");
+    document.getElementById("ai-stop-bar").classList.add("hidden");
+    if (aiResultText) {
+      document.getElementById("ai-actions-bar").classList.remove("hidden");
+    } else {
+      document.getElementById("ai-response").classList.add("hidden");
+    }
+  }
+  document.querySelectorAll(".ai-action").forEach((btn) => {
+    btn.addEventListener("click", () => sendAiRequest(btn.dataset.action));
+  });
+  document.getElementById("ai-custom-submit").addEventListener("click", () => {
+    const prompt = document.getElementById("ai-prompt-input").value.trim();
+    if (prompt) sendAiRequest("custom", prompt);
+  });
+  document.getElementById("ai-prompt-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const prompt = document.getElementById("ai-prompt-input").value.trim();
+      if (prompt) sendAiRequest("custom", prompt);
+    }
+    if (e.key === "Escape") closeAiPanel();
+  });
+  document.getElementById("ai-replace").addEventListener("click", aiReplace);
+  document.getElementById("ai-insert").addEventListener("click", aiInsertBelow);
+  document.getElementById("ai-copy").addEventListener("click", aiCopy);
+  document.getElementById("ai-discard").addEventListener("click", aiDiscard);
+  document.getElementById("ai-stop").addEventListener("click", aiStop);
+  document.getElementById("ai-close").addEventListener("click", closeAiPanel);
+  document.getElementById("ai-error-retry").addEventListener("click", () => {
+    sendAiRequest(aiCurrentAction);
+  });
+  document.getElementById("ai-overlay").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("ai-overlay")) closeAiPanel();
+  });
+  window.gaboAPI.onMenuAi(() => openAiPanel());
   document.addEventListener("DOMContentLoaded", async () => {
     const lastFile = localStorage.getItem("gabo-last-file");
     if (lastFile) {
