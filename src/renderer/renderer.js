@@ -12,7 +12,6 @@ import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@code
 import { tags } from '@lezer/highlight'
 import { autocompletion, closeBrackets } from '@codemirror/autocomplete'
 import { searchKeymap } from '@codemirror/search'
-import { lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
 import { marked } from 'marked'
 
 // ── State ──
@@ -163,8 +162,7 @@ function createEditor(content = '') {
         ]),
         autocompletion(),
         closeBrackets(),
-        lineNumbers(),
-        highlightActiveLineGutter(),
+        // No line numbers — minimalist design
         checkboxPlugin,
         focusModePlugin,
         typewriterScroll,
