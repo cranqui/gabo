@@ -383,6 +383,8 @@ function createEditor(content = '') {
           { key: 'Mod-s', run: () => { saveFile(); return true } },
           { key: 'Mod-d', run: () => { toggleFocus(); return true } },
           { key: 'Mod-shift-m', run: () => { toggleMdMode(); return true } },
+          { key: 'Mod-k', run: () => { openPalette(); return true } },
+          { key: 'Mod-p', run: () => { openSwitcher(); return true } },
         ]),
         closeBrackets(),
         checkboxPlugin,
@@ -416,7 +418,6 @@ function createEditor(content = '') {
 function toggleFocus() {
   focusModeOn = !focusModeOn
   if (editor) editor.dispatch({ effects: toggleFocusMode.of(focusModeOn) })
-  document.getElementById('btn-focus').classList.toggle('active', focusModeOn)
   const cmEditor = document.querySelector('.cm-editor')
   if (cmEditor) cmEditor.classList.toggle('focus-mode', focusModeOn)
   if (editor && !focusModeOn) editor.focus()
@@ -426,8 +427,6 @@ function toggleFocus() {
 function toggleMdMode() {
   mdModeOn = !mdModeOn
   if (editor) editor.dispatch({ effects: toggleMdModeEffect.of(mdModeOn) })
-  const btn = document.getElementById('btn-md')
-  if (btn) btn.classList.toggle('active', mdModeOn)
   const cmEditor = document.querySelector('.cm-editor')
   if (cmEditor) {
     cmEditor.classList.toggle('md-mode', mdModeOn)
@@ -500,6 +499,62 @@ function scheduleAutoSave() {
     }
   }, 2000)
 }
+
+// ── Command Palette ──
+const PALETTE_COMMANDS = [
+  { icon: '📂', label: 'Open File',         kbd: '⌘O',       action: () => openFile() },
+  { icon: '💾', label: 'Save',              kbd: '⌘S',       action: () => saveFile() },
+  { icon: '🔍', label: 'Browse Files',      kbd: '⌘P',       action: () => openSwitcher() },
+  { icon: '◎',  label: 'Focus Mode',        kbd: '⌘D',       action: () => toggleFocus() },
+  { icon: '✦',  label: 'Zen Mode',          kbd: '⌘⇧Z',      action: () => toggleZen() },
+  { icon: '⌥',  label: 'Toggle Markdown',   kbd: '⌘⇧M',      action: () => toggleMdMode() },
+  { icon: '◑',  label: 'Toggle Dark Mode',  kbd: '⌘⇧D',      action: () => toggleDarkMode() },
+  { icon: '↗',  label: 'Export PDF',        kbd: '⌘⇧P',      action: () => exportPdf() },
+]
+
+let paletteSelectedIndex = 0
+let paletteFiltered = [...PALETTE_COMMANDS]
+
+function openPalette() {
+  paletteSelectedIndex = 0
+  paletteFiltered = [...PALETTE_COMMANDS]
+  document.getElementById('palette-input').value = ''
+  renderPaletteList()
+  document.getElementById('palette-overlay').classList.add('open')
+  document.getElementById('palette-input').focus()
+}
+
+function closePalette() {
+  document.getElementById('palette-overlay').classList.remove('open')
+  if (editor) editor.focus()
+}
+
+function renderPaletteList() {
+  const query = document.getElementById('palette-input').value.toLowerCase()
+  paletteFiltered = PALETTE_COMMANDS.filter(c => c.label.toLowerCase().includes(query))
+  const ul = document.getElementById('palette-list')
+  ul.innerHTML = ''
+  paletteFiltered.forEach((cmd, i) => {
+    const li = document.createElement('li')
+    li.className = 'palette-item' + (i === paletteSelectedIndex ? ' selected' : '')
+    li.innerHTML = `<span class="palette-icon">${cmd.icon}</span><span class="palette-label">${cmd.label}</span><span class="palette-kbd">${cmd.kbd}</span>`
+    li.addEventListener('click', () => { closePalette(); cmd.action() })
+    ul.appendChild(li)
+  })
+}
+
+document.getElementById('palette-input').addEventListener('input', () => {
+  paletteSelectedIndex = 0; renderPaletteList()
+})
+document.getElementById('palette-input').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); paletteSelectedIndex = Math.min(paletteSelectedIndex + 1, paletteFiltered.length - 1); renderPaletteList() }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); paletteSelectedIndex = Math.max(paletteSelectedIndex - 1, 0); renderPaletteList() }
+  else if (e.key === 'Enter') { e.preventDefault(); const cmd = paletteFiltered[paletteSelectedIndex]; if (cmd) { closePalette(); cmd.action() } }
+  else if (e.key === 'Escape') closePalette()
+})
+document.getElementById('palette-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('palette-overlay')) closePalette()
+})
 
 // ── File Switcher ──
 async function openSwitcher() {
@@ -592,9 +647,8 @@ window.gaboAPI.onMenuZen(() => toggleZen())
 window.gaboAPI.onMenuDarkMode(() => toggleDarkMode())
 
 // ── Button Handlers ──
-document.getElementById('btn-focus').addEventListener('click', toggleFocus)
-document.getElementById('btn-md').addEventListener('click', toggleMdMode)
 document.getElementById('btn-dark').addEventListener('click', toggleDarkMode)
+document.getElementById('btn-palette').addEventListener('click', openPalette)
 
 // ── Switcher Event Handlers ──
 document.getElementById('switcher-input').addEventListener('input', () => { switcherSelectedIndex = 0; renderSwitcherList() })

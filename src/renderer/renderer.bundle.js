@@ -28465,6 +28465,14 @@ ${text}</tr>
             { key: "Mod-shift-m", run: () => {
               toggleMdMode();
               return true;
+            } },
+            { key: "Mod-k", run: () => {
+              openPalette();
+              return true;
+            } },
+            { key: "Mod-p", run: () => {
+              openSwitcher();
+              return true;
             } }
           ]),
           closeBrackets(),
@@ -28498,7 +28506,6 @@ ${text}</tr>
   function toggleFocus() {
     focusModeOn = !focusModeOn;
     if (editor) editor.dispatch({ effects: toggleFocusMode.of(focusModeOn) });
-    document.getElementById("btn-focus").classList.toggle("active", focusModeOn);
     const cmEditor = document.querySelector(".cm-editor");
     if (cmEditor) cmEditor.classList.toggle("focus-mode", focusModeOn);
     if (editor && !focusModeOn) editor.focus();
@@ -28506,8 +28513,6 @@ ${text}</tr>
   function toggleMdMode() {
     mdModeOn = !mdModeOn;
     if (editor) editor.dispatch({ effects: toggleMdModeEffect.of(mdModeOn) });
-    const btn = document.getElementById("btn-md");
-    if (btn) btn.classList.toggle("active", mdModeOn);
     const cmEditor = document.querySelector(".cm-editor");
     if (cmEditor) {
       cmEditor.classList.toggle("md-mode", mdModeOn);
@@ -28581,6 +28586,80 @@ ${text}</tr>
       }
     }, 2e3);
   }
+  var PALETTE_COMMANDS = [
+    { icon: "\u{1F4C2}", label: "Open File", kbd: "\u2318O", action: () => openFile() },
+    { icon: "\u{1F4BE}", label: "Save", kbd: "\u2318S", action: () => saveFile() },
+    { icon: "\u{1F50D}", label: "Browse Files", kbd: "\u2318P", action: () => openSwitcher() },
+    { icon: "\u25CE", label: "Focus Mode", kbd: "\u2318D", action: () => toggleFocus() },
+    { icon: "\u2726", label: "Zen Mode", kbd: "\u2318\u21E7Z", action: () => toggleZen() },
+    { icon: "\u2325", label: "Toggle Markdown", kbd: "\u2318\u21E7M", action: () => toggleMdMode() },
+    { icon: "\u25D1", label: "Toggle Dark Mode", kbd: "\u2318\u21E7D", action: () => toggleDarkMode() },
+    { icon: "\u2197", label: "Export PDF", kbd: "\u2318\u21E7P", action: () => exportPdf() }
+  ];
+  var paletteSelectedIndex = 0;
+  var paletteFiltered = [...PALETTE_COMMANDS];
+  function openPalette() {
+    paletteSelectedIndex = 0;
+    paletteFiltered = [...PALETTE_COMMANDS];
+    document.getElementById("palette-input").value = "";
+    renderPaletteList();
+    document.getElementById("palette-overlay").classList.add("open");
+    document.getElementById("palette-input").focus();
+  }
+  function closePalette() {
+    document.getElementById("palette-overlay").classList.remove("open");
+    if (editor) editor.focus();
+  }
+  function renderPaletteList() {
+    const query = document.getElementById("palette-input").value.toLowerCase();
+    paletteFiltered = PALETTE_COMMANDS.filter((c) => c.label.toLowerCase().includes(query));
+    const ul = document.getElementById("palette-list");
+    ul.innerHTML = "";
+    paletteFiltered.forEach((cmd2, i) => {
+      const li = document.createElement("li");
+      li.className = "palette-item" + (i === paletteSelectedIndex ? " selected" : "");
+      li.innerHTML = `<span class="palette-icon">${cmd2.icon}</span><span class="palette-label">${cmd2.label}</span><span class="palette-kbd">${cmd2.kbd}</span>`;
+      li.addEventListener("click", () => {
+        closePalette();
+        cmd2.action();
+      });
+      ul.appendChild(li);
+    });
+  }
+  document.getElementById("palette-input").addEventListener("input", () => {
+    paletteSelectedIndex = 0;
+    renderPaletteList();
+  });
+  document.getElementById("palette-input").addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      paletteSelectedIndex = Math.min(paletteSelectedIndex + 1, paletteFiltered.length - 1);
+      renderPaletteList();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      paletteSelectedIndex = Math.max(paletteSelectedIndex - 1, 0);
+      renderPaletteList();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const cmd2 = paletteFiltered[paletteSelectedIndex];
+      if (cmd2) {
+        closePalette();
+        cmd2.action();
+      }
+    } else if (e.key === "Escape") closePalette();
+  });
+  document.getElementById("palette-overlay").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("palette-overlay")) closePalette();
+  });
+  async function openSwitcher() {
+    const dir = currentFilePath ? currentFilePath.substring(0, currentFilePath.lastIndexOf("/")) : await window.gaboAPI.getDefaultDir();
+    switcherFiles = await window.gaboAPI.listFiles(dir);
+    switcherSelectedIndex = 0;
+    document.getElementById("switcher-input").value = "";
+    renderSwitcherList();
+    document.getElementById("switcher-overlay").classList.add("open");
+    document.getElementById("switcher-input").focus();
+  }
   async function loadFileFromSwitcher(filePath) {
     const result = await window.gaboAPI.openFileByPath(filePath);
     if (!result) return;
@@ -28647,9 +28726,8 @@ ${text}</tr>
   window.gaboAPI.onMenuPreview(() => toggleMdMode());
   window.gaboAPI.onMenuZen(() => toggleZen());
   window.gaboAPI.onMenuDarkMode(() => toggleDarkMode());
-  document.getElementById("btn-focus").addEventListener("click", toggleFocus);
-  document.getElementById("btn-md").addEventListener("click", toggleMdMode);
   document.getElementById("btn-dark").addEventListener("click", toggleDarkMode);
+  document.getElementById("btn-palette").addEventListener("click", openPalette);
   document.getElementById("switcher-input").addEventListener("input", () => {
     switcherSelectedIndex = 0;
     renderSwitcherList();
