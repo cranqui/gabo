@@ -976,22 +976,30 @@ async function sendAiRequest(action, customPromptText) {
     textToSend = editor.state.sliceDoc(start, end)
   }
 
-  // Show streaming state
+  // Show loading spinner initially, before first chunk arrives
   document.getElementById('ai-actions').classList.add('hidden')
   document.getElementById('ai-custom').classList.add('hidden')
-  document.getElementById('ai-response').classList.remove('hidden')
-  document.getElementById('ai-original-text').textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? '…' : '')
-  document.getElementById('ai-result-text').textContent = ''
+  document.getElementById('ai-response').classList.add('hidden')
+  document.getElementById('ai-loading').classList.remove('hidden')
   document.getElementById('ai-streaming-cursor').classList.remove('hidden')
-  document.getElementById('ai-loading').classList.add('hidden')
   document.getElementById('ai-actions-bar').classList.add('hidden')
   document.getElementById('ai-stop-bar').classList.remove('hidden')
   document.getElementById('ai-error').classList.add('hidden')
 
+  let firstChunkReceived = false
   const promptForCustom = action === 'custom' ? customPromptText : null
 
-  // Set up chunk listeners
+  // Set up chunk listeners (preload removeAllListeners prevents accumulation)
   window.gaboAPI.onAiChunk((text) => {
+    if (!aiIsStreaming) return // drop stale chunks after cancel/done
+    if (!firstChunkReceived) {
+      firstChunkReceived = true
+      // Transition from loading dots to streaming response
+      document.getElementById('ai-loading').classList.add('hidden')
+      document.getElementById('ai-response').classList.remove('hidden')
+      document.getElementById('ai-original-text').textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? '…' : '')
+      document.getElementById('ai-result-text').textContent = ''
+    }
     aiResultText += text
     document.getElementById('ai-result-text').textContent = aiResultText
     const resultEl = document.getElementById('ai-result-text')
@@ -1098,6 +1106,14 @@ document.getElementById('ai-overlay').addEventListener('click', (e) => {
 
 // ── Menu/IPC: AI ──
 window.gaboAPI.onMenuAi(() => openAiPanel())
+
+// Global Escape to close AI panel (works during streaming too)
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('ai-overlay').classList.contains('open')) {
+    e.preventDefault()
+    closeAiPanel()
+  }
+})
 
 // ── Initialize ──
 document.addEventListener('DOMContentLoaded', async () => {

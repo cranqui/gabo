@@ -29034,16 +29034,23 @@ ${text}</tr>
     }
     document.getElementById("ai-actions").classList.add("hidden");
     document.getElementById("ai-custom").classList.add("hidden");
-    document.getElementById("ai-response").classList.remove("hidden");
-    document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
-    document.getElementById("ai-result-text").textContent = "";
+    document.getElementById("ai-response").classList.add("hidden");
+    document.getElementById("ai-loading").classList.remove("hidden");
     document.getElementById("ai-streaming-cursor").classList.remove("hidden");
-    document.getElementById("ai-loading").classList.add("hidden");
     document.getElementById("ai-actions-bar").classList.add("hidden");
     document.getElementById("ai-stop-bar").classList.remove("hidden");
     document.getElementById("ai-error").classList.add("hidden");
+    let firstChunkReceived = false;
     const promptForCustom = action === "custom" ? customPromptText : null;
     window.gaboAPI.onAiChunk((text) => {
+      if (!aiIsStreaming) return;
+      if (!firstChunkReceived) {
+        firstChunkReceived = true;
+        document.getElementById("ai-loading").classList.add("hidden");
+        document.getElementById("ai-response").classList.remove("hidden");
+        document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
+        document.getElementById("ai-result-text").textContent = "";
+      }
       aiResultText += text;
       document.getElementById("ai-result-text").textContent = aiResultText;
       const resultEl = document.getElementById("ai-result-text");
@@ -29138,6 +29145,12 @@ ${text}</tr>
     if (e.target === document.getElementById("ai-overlay")) closeAiPanel();
   });
   window.gaboAPI.onMenuAi(() => openAiPanel());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("ai-overlay").classList.contains("open")) {
+      e.preventDefault();
+      closeAiPanel();
+    }
+  });
   document.addEventListener("DOMContentLoaded", async () => {
     const lastFile = localStorage.getItem("gabo-last-file");
     if (lastFile) {
