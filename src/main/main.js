@@ -153,6 +153,16 @@ ipcMain.handle('open-file-by-path', async (event, filePath) => {
   }
 })
 
+// IPC: Rename file
+ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
+  try {
+    fs.renameSync(oldPath, newPath)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
 // IPC: Export PDF — renders the provided HTML in a hidden window, exports to PDF
 ipcMain.handle('export-pdf', async (event, html) => {
   const result = await dialog.showSaveDialog(mainWindow, {

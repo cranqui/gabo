@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('gaboAPI', {
   getDefaultDir: () => ipcRenderer.invoke('get-default-dir'),
   openFileByPath: (filePath) => ipcRenderer.invoke('open-file-by-path', filePath),
   exportPdf: (html) => ipcRenderer.invoke('export-pdf', html),
+  renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
 
   onMenuOpen: (cb) => { ipcRenderer.removeAllListeners('menu-open'); ipcRenderer.on('menu-open', cb) },
   onMenuSave: (cb) => { ipcRenderer.removeAllListeners('menu-save'); ipcRenderer.on('menu-save', cb) },

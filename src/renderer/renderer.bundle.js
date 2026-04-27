@@ -28539,8 +28539,38 @@ ${text}</tr>
   }
   function updateTitle() {
     const titleEl = document.getElementById("titlebar-title");
-    const name2 = currentFilePath ? currentFilePath.split("/").pop() : "Gabo";
-    titleEl.textContent = isDirty ? `${name2} \u2022` : name2;
+    const dirtyDot = document.getElementById("title-dirty");
+    if (currentFilePath) {
+      const fullName = currentFilePath.split("/").pop();
+      const name2 = fullName.replace(/\.(md|markdown|txt)$/, "");
+      if (document.activeElement !== titleEl) titleEl.value = name2;
+      titleEl.setAttribute("data-editable", "true");
+      titleEl.removeAttribute("readonly");
+      titleEl.style.width = Math.min(Math.max(name2.length * 9, 60), 340) + "px";
+    } else {
+      titleEl.value = "Gabo";
+      titleEl.setAttribute("readonly", "true");
+      titleEl.removeAttribute("data-editable");
+      titleEl.style.width = "60px";
+    }
+    if (dirtyDot) dirtyDot.classList.toggle("visible", isDirty && !!currentFilePath);
+  }
+  async function renameFile(newBaseName) {
+    if (!currentFilePath || !newBaseName.trim()) {
+      updateTitle();
+      return;
+    }
+    const dir = currentFilePath.substring(0, currentFilePath.lastIndexOf("/"));
+    const ext = currentFilePath.split(".").pop();
+    const newName = newBaseName.trim();
+    const newPath = `${dir}/${newName}.${ext}`;
+    if (newPath === currentFilePath) return;
+    const result = await window.gaboAPI.renameFile(currentFilePath, newPath);
+    if (result.ok) {
+      currentFilePath = newPath;
+      localStorage.setItem("gabo-last-file", newPath);
+    }
+    updateTitle();
   }
   async function openFile() {
     const result = await window.gaboAPI.openFile();
@@ -28726,6 +28756,29 @@ ${text}</tr>
   window.gaboAPI.onMenuPreview(() => toggleMdMode());
   window.gaboAPI.onMenuZen(() => toggleZen());
   window.gaboAPI.onMenuDarkMode(() => toggleDarkMode());
+  var titleInput = document.getElementById("titlebar-title");
+  var titleSnapshot = "";
+  titleInput.addEventListener("focus", () => {
+    if (!currentFilePath) {
+      titleInput.blur();
+      return;
+    }
+    titleSnapshot = titleInput.value;
+    titleInput.select();
+  });
+  titleInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      titleInput.blur();
+    }
+    if (e.key === "Escape") {
+      titleInput.value = titleSnapshot;
+      titleInput.blur();
+    }
+  });
+  titleInput.addEventListener("blur", () => {
+    if (currentFilePath) renameFile(titleInput.value);
+  });
   document.getElementById("btn-dark").addEventListener("click", toggleDarkMode);
   document.getElementById("btn-palette").addEventListener("click", openPalette);
   document.getElementById("switcher-input").addEventListener("input", () => {
