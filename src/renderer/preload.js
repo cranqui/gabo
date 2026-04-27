@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('gaboAPI', {
   onMenuDarkMode: (cb) => { ipcRenderer.removeAllListeners('menu-dark-mode'); ipcRenderer.on('menu-dark-mode', cb) },
 
   // ── AI Integration ──
-  aiRequest: (action, selectedText, customPrompt) => ipcRenderer.invoke('ai-request', { action, selectedText, customPrompt }),
+  aiRequest: (action, selectedText, customPrompt, docContext) => ipcRenderer.invoke('ai-request', { action, selectedText, customPrompt, docContext }),
   aiGetConfig: () => ipcRenderer.invoke('ai-get-config'),
   aiSaveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),
   aiTest: () => ipcRenderer.invoke('ai-test'),

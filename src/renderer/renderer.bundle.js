@@ -29026,6 +29026,32 @@ ${text}</tr>
     }
     if (editor) editor.focus();
   }
+  function buildDocContext() {
+    if (!editor) return "";
+    const doc2 = editor.state.doc;
+    const pos = editor.state.selection.main.head;
+    const selEnd = editor.state.selection.main.to;
+    const text = doc2.toString();
+    const outlineLines = [];
+    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+    let match;
+    while ((match = headingRegex.exec(text)) !== null) {
+      const level = match[1].length;
+      const title = match[2].trim();
+      const lineNum = text.substring(0, match.index).split("\n").length;
+      outlineLines.push(`${"  ".repeat(level - 1)}${"#".repeat(level)} ${title}  (L${lineNum})`);
+    }
+    const outline = outlineLines.length > 0 ? "Document outline:\n" + outlineLines.join("\n") : "";
+    const contextBeforeStart = Math.max(0, pos - 500);
+    const contextBefore = doc2.sliceString(contextBeforeStart, pos).trim();
+    const contextAfterEnd = Math.min(doc2.length, selEnd + 200);
+    const contextAfter = doc2.sliceString(selEnd, contextAfterEnd).trim();
+    const parts = [];
+    if (outline) parts.push(outline);
+    if (contextBefore) parts.push("Text before selection:\n" + contextBefore);
+    if (contextAfter) parts.push("Text after selection:\n" + contextAfter);
+    return parts.join("\n\n");
+  }
   async function sendAiRequest(action, customPromptText) {
     if (aiIsStreaming) return;
     aiCurrentAction = action;
@@ -29077,7 +29103,8 @@ ${text}</tr>
       document.getElementById("ai-error-text").textContent = errMsg;
       document.getElementById("ai-error").classList.remove("hidden");
     });
-    await window.gaboAPI.aiRequest(action, textToSend, promptForCustom);
+    const docContext = buildDocContext();
+    await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext);
   }
   function aiReplace() {
     if (!editor || !aiResultText) return;

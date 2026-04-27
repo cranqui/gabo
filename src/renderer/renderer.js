@@ -965,6 +965,47 @@ function closeAiPanel() {
   if (editor) editor.focus()
 }
 
+// ── Document Context ──
+// Extracts an outline (headings) + text surrounding the cursor/selection
+// so the AI understands where in the document it's editing.
+function buildDocContext() {
+  if (!editor) return ''
+  const doc = editor.state.doc
+  const pos = editor.state.selection.main.head
+  const selEnd = editor.state.selection.main.to
+  const text = doc.toString()
+
+  // 1. Build outline from ATX headings (# to ######)
+  const outlineLines = []
+  const headingRegex = /^(#{1,6})\s+(.+)$/gm
+  let match
+  while ((match = headingRegex.exec(text)) !== null) {
+    const level = match[1].length
+    const title = match[2].trim()
+    const lineNum = text.substring(0, match.index).split('\n').length
+    outlineLines.push(`${'  '.repeat(level - 1)}${'#'.repeat(level)} ${title}  (L${lineNum})`)
+  }
+  const outline = outlineLines.length > 0
+    ? 'Document outline:\n' + outlineLines.join('\n')
+    : ''
+
+  // 2. Text before selection (~500 chars)
+  const contextBeforeStart = Math.max(0, pos - 500)
+  const contextBefore = doc.sliceString(contextBeforeStart, pos).trim()
+
+  // 3. Text after selection (~200 chars)
+  const contextAfterEnd = Math.min(doc.length, selEnd + 200)
+  const contextAfter = doc.sliceString(selEnd, contextAfterEnd).trim()
+
+  // 4. Assemble
+  const parts = []
+  if (outline) parts.push(outline)
+  if (contextBefore) parts.push('Text before selection:\n' + contextBefore)
+  if (contextAfter) parts.push('Text after selection:\n' + contextAfter)
+
+  return parts.join('\n\n')
+}
+
 async function sendAiRequest(action, customPromptText) {
   if (aiIsStreaming) return
   aiCurrentAction = action
@@ -1026,7 +1067,8 @@ async function sendAiRequest(action, customPromptText) {
     document.getElementById('ai-error').classList.remove('hidden')
   })
 
-  await window.gaboAPI.aiRequest(action, textToSend, promptForCustom)
+  const docContext = buildDocContext()
+  await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext)
 }
 
 function aiReplace() {

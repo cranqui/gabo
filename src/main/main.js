@@ -209,8 +209,12 @@ const ACTION_PROMPTS = {
   'custom':   ''  // User provides their own prompt
 }
 
-function buildSystemPrompt(action) {
-  return `You are a writing assistant inside a markdown editor called Gabo. You help the user improve their text. Format your output using markdown when appropriate. Be concise. Do NOT wrap your response in code blocks. Do NOT add introductory text like "Here is..." or "I've rewritten...". Just output the result directly.`
+function buildSystemPrompt(action, docContext) {
+  let prompt = `You are a writing assistant inside a markdown editor called Gabo. You help the user improve their text. Format your output using markdown when appropriate. Be concise. Do NOT wrap your response in code blocks. Do NOT add introductory text like "Here is..." or "I've rewritten...". Just output the result directly.`
+  if (docContext) {
+    prompt += `\n\n---\nDocument context (for reference only — do NOT include this in your output):\n${docContext}`
+  }
+  return prompt
 }
 
 function buildUserPrompt(action, selectedText) {
@@ -226,7 +230,7 @@ function buildUserPrompt(action, selectedText) {
 let currentAiAbortController = null
 
 // AI: Send request (streaming)
-ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt }) => {
+ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt, docContext }) => {
   const config = loadConfig()
   if (!config.enabled) {
     event.sender.send('ai-error', 'AI is disabled. Enable it in Settings (⌘,)')
@@ -251,7 +255,7 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
     }
   }
 
-  const systemPrompt = buildSystemPrompt(action)
+  const systemPrompt = buildSystemPrompt(action, docContext)
   const userPrompt = customPrompt
     ? `${customPrompt}\n\n${selectedText}`
     : buildUserPrompt(action, selectedText)
