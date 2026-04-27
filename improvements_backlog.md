@@ -111,8 +111,8 @@ Renderer
 
 ## ✍️ Editor Quality
 
-### Smarter list continuation 💡
-When pressing Enter inside a list, auto-continue the list marker (`-`, `1.`, `- [ ]`). Currently Enter just creates a blank line.
+### Smarter list continuation ✅
+When pressing Enter inside a list, auto-continue the list marker (`-`, `1.`, `- [ ]`). Empty item cancels the list. Nested indent preserved.
 
 ### Better heading spacing ✅
 Add visible margin above/below heading lines in visual mode so the document feels more like a rendered page.
