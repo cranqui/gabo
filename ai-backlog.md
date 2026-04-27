@@ -1231,6 +1231,7 @@ if (config.apiKey && safeStorage.isEncryptionAvailable()) {
 2. **API key encryption at rest** — Use Electron's `safeStorage` API to encrypt the API key (Phase 4.5). Plaintext JSON is a credential exposure risk; must ship before any public release. OS keychain-backed encryption on macOS (Keychain), Linux (libsecret), Windows (DPAPI).
 3. **CSP**: Since we use `http://` for Ollama, ensure Content-Security-Policy doesn't block it. In development mode (`webPreferences.devTools`), this is fine. For production, add Ollama's origin to connect-src
 4. **No remote code execution** — AI responses are inserted as plain text, never rendered as HTML
+5. **Abort race window** — In `streamChat()`, if `signal.abort()` fires between `transport.request()` and `signal.addEventListener('abort', …)`, the abort won't propagate to the HTTP request. Harmless in Electron (single-threaded main process, so `ai-cancel` IPC can't arrive mid-sync), but would be a real bug if Gabo ever moves off Electron. Fix: call `signal.addEventListener('abort', …)` before `transport.request()`, or check `signal.aborted` on the request callback entry.
 
 ---
 
