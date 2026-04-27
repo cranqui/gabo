@@ -558,6 +558,8 @@ function createEditor(content = '') {
           { key: 'Mod-3', run: (view) => toggleHeading(view, 3) },
           // ── AI Assist ──
           { key: 'Mod-j', run: () => { openAiPanel(); return true } },
+          // ── Settings ──
+          { key: 'Mod-,', run: () => { openSettings(); return true } },
         ]),
         closeBrackets(),
         checkboxPlugin,
@@ -724,6 +726,7 @@ const PALETTE_COMMANDS = [
   { icon: '↗',  label: 'Export PDF',        kbd: '⌘⇧P',      action: () => exportPdf() },
   { icon: '?',  label: 'Markdown Reference', kbd: '⌘⇧/',      action: () => openHelp() },
   { icon: '✨', label: 'AI Assist',          kbd: '⌘J',       action: () => openAiPanel() },
+  { icon: '⚙️', label: 'Settings',          kbd: '⌘,',       action: () => openSettings() },
 ]
 
 let paletteSelectedIndex = 0
@@ -1114,6 +1117,123 @@ document.addEventListener('keydown', (e) => {
     closeAiPanel()
   }
 })
+
+// ═══════════════════════════════════════
+// ── Settings ──
+// ═══════════════════════════════════════
+let currentAiConfig = null
+
+const PROVIDER_DEFAULTS = {
+  'ollama': { baseURL: 'http://localhost:11434/v1', model: 'llama3.2' },
+  'openai-compatible': { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  'hermes': { baseURL: 'http://localhost:8642/v1', model: 'glm-5.1:cloud' }
+}
+
+async function openSettings() {
+  currentAiConfig = await window.gaboAPI.aiGetConfig()
+
+  document.getElementById('settings-provider').value = currentAiConfig.provider
+  document.getElementById('settings-baseurl').value = currentAiConfig.baseURL
+  document.getElementById('settings-apikey').value = currentAiConfig.apiKey
+  document.getElementById('settings-model').value = currentAiConfig.model
+  document.getElementById('settings-temperature').value = currentAiConfig.temperature
+  document.getElementById('settings-temperature-val').textContent = currentAiConfig.temperature
+  document.getElementById('settings-maxtokens').value = currentAiConfig.maxTokens
+  document.getElementById('settings-ai-enabled').checked = currentAiConfig.enabled
+
+  updateSettingsDefaults()
+  document.getElementById('settings-test-result').classList.add('hidden')
+  document.getElementById('settings-overlay').classList.add('open')
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open')
+  if (editor) editor.focus()
+}
+
+function updateSettingsDefaults() {
+  const provider = document.getElementById('settings-provider').value
+  const defaults = PROVIDER_DEFAULTS[provider]
+  if (!defaults) return
+  const baseURLInput = document.getElementById('settings-baseurl')
+  const modelInput = document.getElementById('settings-model')
+  const allDefaults = Object.values(PROVIDER_DEFAULTS)
+  if (allDefaults.some(d => d.baseURL === baseURLInput.value)) {
+    baseURLInput.value = defaults.baseURL
+  }
+  if (allDefaults.some(d => d.model === modelInput.value)) {
+    modelInput.value = defaults.model
+  }
+}
+
+function gatherSettingsConfig() {
+  return {
+    provider: document.getElementById('settings-provider').value,
+    baseURL: document.getElementById('settings-baseurl').value.trim(),
+    apiKey: document.getElementById('settings-apikey').value,
+    model: document.getElementById('settings-model').value.trim(),
+    temperature: parseFloat(document.getElementById('settings-temperature').value),
+    maxTokens: parseInt(document.getElementById('settings-maxtokens').value),
+    enabled: document.getElementById('settings-ai-enabled').checked
+  }
+}
+
+document.getElementById('settings-provider').addEventListener('change', updateSettingsDefaults)
+
+document.getElementById('settings-temperature').addEventListener('input', (e) => {
+  document.getElementById('settings-temperature-val').textContent = e.target.value
+})
+
+document.getElementById('settings-save').addEventListener('click', async () => {
+  const newConfig = gatherSettingsConfig()
+  const result = await window.gaboAPI.aiSaveConfig(newConfig)
+  if (result.ok) {
+    closeSettings()
+  } else {
+    const resultEl = document.getElementById('settings-test-result')
+    resultEl.classList.remove('hidden', 'success', 'error')
+    resultEl.classList.add('error')
+    resultEl.textContent = '❌ ' + (result.errors || []).join(', ')
+  }
+})
+
+document.getElementById('settings-test').addEventListener('click', async () => {
+  const resultEl = document.getElementById('settings-test-result')
+  resultEl.classList.remove('hidden', 'success', 'error')
+  resultEl.textContent = 'Testing…'
+
+  const newConfig = gatherSettingsConfig()
+  const saveResult = await window.gaboAPI.aiSaveConfig(newConfig)
+  if (!saveResult.ok) {
+    resultEl.classList.add('error')
+    resultEl.textContent = '❌ ' + (saveResult.errors || []).join(', ')
+    return
+  }
+
+  const testResult = await window.gaboAPI.aiTest()
+  if (testResult.ok) {
+    resultEl.classList.add('success')
+    resultEl.textContent = `✅ ${testResult.message}`
+  } else {
+    resultEl.classList.add('error')
+    resultEl.textContent = `❌ ${testResult.error}`
+  }
+})
+
+document.getElementById('settings-close').addEventListener('click', closeSettings)
+document.getElementById('settings-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings()
+})
+
+// Global Escape to close Settings
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('settings-overlay').classList.contains('open')) {
+    e.preventDefault()
+    closeSettings()
+  }
+})
+
+window.gaboAPI.onMenuSettings(() => openSettings())
 
 // ── Initialize ──
 document.addEventListener('DOMContentLoaded', async () => {

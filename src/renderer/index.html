@@ -570,6 +570,66 @@
       color: #e5534b; font-family: var(--font-display); font-size: 14px;
     }
     #ai-error-text { flex: 1; }
+
+    /* ═══ Settings Modal ═══ */
+    #settings-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.3); z-index: 5000;
+      justify-content: center; align-items: flex-start; padding-top: 10vh;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    #settings-overlay.open { display: flex; }
+    #settings-panel {
+      background: var(--bg-editor); border: 1px solid var(--border);
+      border-radius: 16px; width: 520px; max-height: 80vh;
+      overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+    }
+    #settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    #settings-title {
+      font-family: var(--font-display); font-size: 15px; font-weight: 600;
+      letter-spacing: var(--letter-spacing); color: var(--text-primary);
+    }
+    #settings-content { padding: 8px 0; }
+    .settings-group { padding: 12px 20px; }
+    .settings-group + .settings-group { border-top: 1px solid var(--border); }
+    .settings-group-label {
+      font-family: var(--font-display); font-size: 10px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .settings-row-buttons { margin-top: 16px; justify-content: flex-end; }
+    .settings-label {
+      font-family: var(--font-display); font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); min-width: 90px; flex-shrink: 0;
+    }
+    #settings-content input[type="text"],
+    #settings-content input[type="password"],
+    #settings-content input[type="number"],
+    #settings-content select {
+      flex: 1; font-family: var(--font-mono); font-size: 13px;
+      background: var(--bg-main); color: var(--text-primary);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; outline: none; transition: border-color 0.15s;
+    }
+    #settings-content input:focus, #settings-content select:focus { border-color: var(--accent); }
+    #settings-content input[type="range"] { flex: 1; }
+    #settings-temperature-val {
+      font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary);
+      min-width: 30px;
+    }
+    #settings-content input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--accent);
+    }
+    #settings-test-result {
+      font-family: var(--font-display); font-size: 13px; margin-top: 8px;
+      padding: 8px 12px; border-radius: 8px;
+    }
+    #settings-test-result.success { background: #d4edda; color: #155724; }
+    #settings-test-result.error { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
@@ -746,6 +806,62 @@
 
   <div id="statusbar">
     <span id="word-count"></span>
+  </div>
+
+  <!-- ── Settings Modal ── -->
+  <div id="settings-overlay">
+    <div id="settings-panel">
+      <div id="settings-header">
+        <span id="settings-title">⚙️ Settings</span>
+        <button id="settings-close" class="icon-btn" title="Close (Esc)">✕</button>
+      </div>
+      <div id="settings-content">
+        <div class="settings-group">
+          <div class="settings-group-label">AI Provider</div>
+          <div class="settings-row">
+            <label class="settings-label">Provider</label>
+            <select id="settings-provider">
+              <option value="ollama">Ollama (Local)</option>
+              <option value="openai-compatible">OpenAI-Compatible</option>
+              <option value="hermes">Hermes Agent</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Base URL</label>
+            <input type="text" id="settings-baseurl" placeholder="http://localhost:11434/v1" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">API Key</label>
+            <input type="password" id="settings-apikey" placeholder="Leave empty for Ollama" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Model</label>
+            <input type="text" id="settings-model" placeholder="llama3.2" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="settings-row settings-row-buttons">
+            <button id="settings-test" class="ai-btn">Save & Test</button>
+            <button id="settings-save" class="ai-btn ai-btn-primary">Save Settings</button>
+          </div>
+          <div id="settings-test-result" class="hidden"></div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-label">AI Behavior</div>
+          <div class="settings-row">
+            <label class="settings-label">Temperature</label>
+            <input type="range" id="settings-temperature" min="0" max="1" step="0.1" value="0.7">
+            <span id="settings-temperature-val">0.7</span>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Max Tokens</label>
+            <input type="number" id="settings-maxtokens" value="2048" min="256" max="8192" step="256">
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Enable AI</label>
+            <input type="checkbox" id="settings-ai-enabled" checked>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="renderer.bundle.js"></script>
