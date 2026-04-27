@@ -12,13 +12,12 @@ import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@code
 import { tags } from '@lezer/highlight'
 import { autocompletion, closeBrackets } from '@codemirror/autocomplete'
 import { searchKeymap } from '@codemirror/search'
-import { marked } from 'marked'
 
 // ── State ──
 let currentFilePath = null
 let isDirty = false
 let focusModeOn = false
-let previewModeOn = false
+let mdModeOn = false       // false = visual (hide syntax), true = show raw markdown
 let zenModeOn = false
 let darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
 let editor = null
@@ -34,10 +33,20 @@ if (darkMode) document.body.classList.add('dark')
 
 // ── Effects ──
 const toggleFocusMode = StateEffect.define()
+const toggleMdModeEffect = StateEffect.define()
+
 const focusModeField = StateField.define({
   create: () => false,
   update: (value, tr) => {
     for (const e of tr.effects) if (e.is(toggleFocusMode)) return e.value
+    return value
+  }
+})
+
+const mdModeField = StateField.define({
+  create: () => mdModeOn,
+  update: (value, tr) => {
+    for (const e of tr.effects) if (e.is(toggleMdModeEffect)) return e.value
     return value
   }
 })
@@ -62,7 +71,7 @@ const focusModePlugin = ViewPlugin.fromClass(class {
   }
 }, { decorations: v => v.decorations })
 
-// ── Markdown syntax fade highlight ──
+// ── Syntax fade highlight (always applied for heading styles) ──
 const syntaxFadeHighlight = HighlightStyle.define([
   { tag: tags.heading1, class: 'cm-header-1' },
   { tag: tags.heading2, class: 'cm-header-2' },
@@ -71,7 +80,213 @@ const syntaxFadeHighlight = HighlightStyle.define([
   { tag: tags.url, class: 'cm-token-faded' },
   { tag: tags.processingInstruction, class: 'cm-token-faded' },
   { tag: tags.meta, class: 'cm-token-faded' },
+  { tag: tags.strong, class: 'cm-visual-bold' },
+  { tag: tags.emphasis, class: 'cm-visual-italic' },
+  { tag: tags.monospace, class: 'cm-visual-code' },
+  { tag: tags.link, class: 'cm-visual-link' },
 ])
+
+// ── Visual mode: hide markdown syntax when not in MD mode ──
+// This plugin hides `#`, `**`, `*`, `` ` ``, `~~`, `[text](url)` syntax
+// when the editor is in visual mode (default).
+const syntaxHidingPlugin = ViewPlugin.fromClass(class {
+  constructor(view) { this.decorations = this.buildDecorations(view) }
+  update(update) {
+    if (update.docChanged || update.viewportChanged ||
+        update.transactions.some(tr => tr.effects.some(e => e.is(toggleMdModeEffect)))) {
+      this.decorations = this.buildDecorations(update.view)
+    }
+  }
+  buildDecorations(view) {
+    const showMd = view.state.field(mdModeField)
+    if (showMd) return Decoration.none
+
+    const decorations = []
+    const doc = view.state.doc
+    const lineCount = doc.lines
+
+    for (let i = 1; i <= lineCount; i++) {
+      const line = doc.line(i)
+      const text = line.text
+      const lineStart = line.from
+
+      // Hide heading markers: # ## ### etc.
+      const headingMatch = text.match(/^(#{1,6})\s+/)
+      if (headingMatch) {
+        const end = headingMatch[0].length
+        decorations.push(
+          Decoration.replace({}).range(lineStart, lineStart + end)
+        )
+      }
+
+      // Hide bold markers: **text** or __text__
+      let match
+      const boldRe = /(\*\*|__)(?=\S)(.*?\S)\1/g
+      while ((match = boldRe.exec(text)) !== null) {
+        const markerLen = match[1].length
+        // Hide opening marker
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index, lineStart + match.index + markerLen)
+        )
+        // Hide closing marker
+        const closingStart = match.index + match[0].length - markerLen
+        decorations.push(
+          Decoration.replace({}).range(lineStart + closingStart, lineStart + closingStart + markerLen)
+        )
+      }
+
+      // Hide italic markers: *text* or _text_ (but not inside bold)
+      const italicRe = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g
+      while ((match = italicRe.exec(text)) !== null) {
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index, lineStart + match.index + 1)
+        )
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index + match[0].length - 1, lineStart + match.index + match[0].length)
+        )
+      }
+
+      // Hide inline code backticks: `code`
+      const codeRe = /`([^`]+)`/g
+      while ((match = codeRe.exec(text)) !== null) {
+        // Opening backtick
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index, lineStart + match.index + 1)
+        )
+        // Closing backtick
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index + match[0].length - 1, lineStart + match.index + match[0].length)
+        )
+      }
+
+      // Hide strikethrough markers: ~~text~~
+      const strikeRe = /~~(.+?)~~/g
+      while ((match = strikeRe.exec(text)) !== null) {
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index, lineStart + match.index + 2)
+        )
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index + match[0].length - 2, lineStart + match.index + match[0].length)
+        )
+      }
+
+      // Hide link syntax, show only link text: [text](url) → text
+      const linkRe = /\[([^\]]*)\]\(([^)]+)\)/g
+      while ((match = linkRe.exec(text)) !== null) {
+        // Hide [ and ](url)
+        decorations.push(
+          Decoration.replace({}).range(lineStart + match.index, lineStart + match.index + 1)
+        )
+        const urlStart = match.index + 1 + match[1].length
+        decorations.push(
+          Decoration.replace({}).range(lineStart + urlStart, lineStart + urlStart + 3 + match[2].length)
+        )
+      }
+
+      // Hide image syntax: ![alt](url) — show just alt text with image indicator
+      const imgRe = /!\[([^\]]*)\]\(([^)]+)\)/g
+      while ((match = imgRe.exec(text)) !== null) {
+        decorations.push(
+          Decoration.replace({ widget: new ImageWidget(match[1], match[2]) }).range(
+            lineStart + match.index, lineStart + match.index + match[0].length
+          )
+        )
+      }
+
+      // Horizontal rule: --- or *** or ___ → decorative line
+      if (/^(---|\*\*\*|___)\s*$/.test(text.trim())) {
+        decorations.push(
+          Decoration.replace({ widget: new HrWidget() }).range(lineStart, lineStart + text.length)
+        )
+      }
+
+      // Blockquote: hide > prefix
+      const bqMatch = text.match(/^(\s*>\s?)/)
+      if (bqMatch) {
+        decorations.push(
+          Decoration.replace({}).range(lineStart, lineStart + bqMatch[0].length)
+        )
+        // Add blockquote line decoration
+        decorations.push(
+          Decoration.line({ class: 'cm-blockquote-line' }).range(lineStart)
+        )
+      }
+
+      // Unordered list: replace -, *, + with bullet, just hide marker
+      const ulMatch = text.match(/^(\s*)([-*+])\s/)
+      if (ulMatch && !headingMatch) {
+        // Hide the marker character
+        const markerPos = ulMatch[1].length
+        decorations.push(
+          Decoration.replace({ widget: new BulletWidget() }).range(
+            lineStart + markerPos, lineStart + markerPos + 1
+          )
+        )
+      }
+
+      // Ordered list: replace 1. with styled number
+      const olMatch = text.match(/^(\s*)(\d+\.)\s/)
+      if (olMatch) {
+        decorations.push(
+          Decoration.replace({ widget: new NumberWidget(olMatch[2]) }).range(
+            lineStart + olMatch[1].length, lineStart + olMatch[1].length + olMatch[2].length
+          )
+        )
+      }
+    }
+
+    // Sort and build the set
+    try {
+      decorations.sort((a, b) => a.from - b.from || a.to - b.to)
+      return Decoration.set(decorations, true)
+    } catch (e) {
+      return Decoration.none
+    }
+  }
+}, { decorations: v => v.decorations })
+
+// ── Visual mode widgets ──
+class BulletWidget extends WidgetType {
+  toDOM() {
+    const span = document.createElement('span')
+    span.textContent = '•'
+    span.className = 'cm-visual-bullet'
+    return span
+  }
+  eq() { return true }
+}
+
+class NumberWidget extends WidgetType {
+  constructor(num) { super(); this.num = num }
+  toDOM() {
+    const span = document.createElement('span')
+    span.textContent = this.num
+    span.className = 'cm-visual-number'
+    return span
+  }
+  eq(other) { return this.num === other.num }
+}
+
+class HrWidget extends WidgetType {
+  toDOM() {
+    const hr = document.createElement('hr')
+    hr.className = 'cm-visual-hr'
+    return hr
+  }
+  eq() { return true }
+}
+
+class ImageWidget extends WidgetType {
+  constructor(alt, url) { super(); this.alt = alt; this.url = url }
+  toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-visual-image'
+    span.textContent = this.alt ? `🖼 ${this.alt}` : '🖼 image'
+    span.title = this.url
+    return span
+  }
+  eq(other) { return this.alt === other.alt && this.url === other.url }
+}
 
 // ── Checkbox widget ──
 class CheckboxWidget extends WidgetType {
@@ -150,20 +365,21 @@ function createEditor(content = '') {
         syntaxHighlighting(syntaxFadeHighlight),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         focusModeField,
+        mdModeField,
         EditorView.baseTheme({
           '&': { fontSize: 'var(--editor-font-size)' },
-          '.cm-content': { fontFamily: 'var(--font-mono)' }
+          '.cm-content': { fontFamily: 'var(--font-display)', letterSpacing: 'var(--letter-spacing)' }
         }),
         keymap.of([
           ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab,
           { key: 'Mod-s', run: () => { saveFile(); return true } },
           { key: 'Mod-d', run: () => { toggleFocus(); return true } },
-          { key: 'Mod-p', run: () => { togglePreview(); return true } },
+          { key: 'Mod-shift-m', run: () => { toggleMdMode(); return true } },
         ]),
         autocompletion(),
         closeBrackets(),
-        // No line numbers — minimalist design
         checkboxPlugin,
+        syntaxHidingPlugin,
         focusModePlugin,
         typewriterScroll,
         EditorView.lineWrapping,
@@ -174,6 +390,13 @@ function createEditor(content = '') {
     }),
     parent: container
   })
+
+  // Set initial visual/md mode class
+  const cmEditor = document.querySelector('.cm-editor')
+  if (cmEditor) {
+    cmEditor.classList.toggle('md-mode', mdModeOn)
+    cmEditor.classList.toggle('visual-mode', !mdModeOn)
+  }
 
   document.getElementById('empty-state').classList.remove('visible')
   container.style.display = 'block'
@@ -191,24 +414,16 @@ function toggleFocus() {
   if (editor && !focusModeOn) editor.focus()
 }
 
-// ── Preview Mode ──
-function togglePreview() {
-  previewModeOn = !previewModeOn
-  const editorContainer = document.getElementById('editor-container')
-  const previewContainer = document.getElementById('preview-container')
-  const btn = document.getElementById('btn-preview')
-
-  if (previewModeOn) {
-    const content = editor ? editor.state.doc.toString() : ''
-    previewContainer.innerHTML = marked.parse(content, { breaks: true, gfm: true })
-    editorContainer.style.display = 'none'
-    previewContainer.style.display = 'block'
-    btn.classList.add('active')
-  } else {
-    editorContainer.style.display = 'block'
-    previewContainer.style.display = 'none'
-    btn.classList.remove('active')
-    if (editor) editor.focus()
+// ── MD Mode toggle ──
+function toggleMdMode() {
+  mdModeOn = !mdModeOn
+  if (editor) editor.dispatch({ effects: toggleMdModeEffect.of(mdModeOn) })
+  const btn = document.getElementById('btn-md')
+  if (btn) btn.classList.toggle('active', mdModeOn)
+  const cmEditor = document.querySelector('.cm-editor')
+  if (cmEditor) {
+    cmEditor.classList.toggle('md-mode', mdModeOn)
+    cmEditor.classList.toggle('visual-mode', !mdModeOn)
   }
 }
 
@@ -317,6 +532,8 @@ function closeSwitcher() {
 async function exportPdf() {
   if (!editor) return
   const content = editor.state.doc.toString()
+  // Use marked for PDF export only
+  const { marked } = await import('marked')
   const html = marked.parse(content, { breaks: true, gfm: true })
   
   const printWindow = window.open('', '_blank')
@@ -342,13 +559,13 @@ window.gaboAPI.onMenuOpen(() => openFile())
 window.gaboAPI.onMenuSave(() => saveFile())
 window.gaboAPI.onMenuExportPdf(() => exportPdf())
 window.gaboAPI.onMenuFocus(() => toggleFocus())
-window.gaboAPI.onMenuPreview(() => togglePreview())
+window.gaboAPI.onMenuPreview(() => toggleMdMode())
 window.gaboAPI.onMenuZen(() => toggleZen())
 window.gaboAPI.onMenuDarkMode(() => toggleDarkMode())
 
 // ── Button Handlers ──
 document.getElementById('btn-focus').addEventListener('click', toggleFocus)
-document.getElementById('btn-preview').addEventListener('click', togglePreview)
+document.getElementById('btn-md').addEventListener('click', toggleMdMode)
 document.getElementById('btn-dark').addEventListener('click', toggleDarkMode)
 
 // ── Switcher Event Handlers ──
@@ -366,11 +583,6 @@ document.getElementById('switcher-input').addEventListener('keydown', (e) => {
 })
 document.getElementById('switcher-overlay').addEventListener('click', (e) => { if (e.target === document.getElementById('switcher-overlay')) closeSwitcher() })
 
-// Global keyboard
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && previewModeOn) togglePreview()
-})
-
 // ── Initialize ──
 document.addEventListener('DOMContentLoaded', () => {
   createEditor(`# Welcome to Gabo
@@ -378,17 +590,17 @@ document.addEventListener('DOMContentLoaded', () => {
 A minimalist, distraction-free markdown editor.
 
 - [ ] Try focus mode with \`Cmd+D\`
-- [ ] Toggle preview with \`Cmd+P\`
+- [ ] Toggle markdown mode with the .MD button
 - [ ] Enter zen mode with \`Cmd+Enter\`
-- [x] Start writing
+- [ ] Start writing
 
 ## Focus
 
-Only the sentence you're writing matters. Press \`Cmd+D\` to dim everything else.
+Only the paragraph you're writing matters. Press \`Cmd+D\` to dim everything else.
 
-## Write
+## Visual First
 
-Start typing. Auto-save has your back.
+By default, syntax is hidden. Click **.MD** to see raw markdown.
 
 ---
 

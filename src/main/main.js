@@ -44,7 +44,7 @@ function createWindow() {
       label: 'View',
       submenu: [
         { label: 'Toggle Focus Mode', accelerator: 'CmdOrCtrl+D', click: () => mainWindow.webContents.send('menu-focus') },
-        { label: 'Toggle Preview', accelerator: 'CmdOrCtrl+P', click: () => mainWindow.webContents.send('menu-preview') },
+        { label: 'Toggle Markdown Mode', accelerator: 'CmdOrCtrl+Shift+M', click: () => mainWindow.webContents.send('menu-preview') },
         { label: 'Toggle Zen Mode', accelerator: 'CmdOrCtrl+Shift+Enter', click: () => mainWindow.webContents.send('menu-zen') },
         { type: 'separator' },
         { label: 'Toggle Dark Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => mainWindow.webContents.send('menu-dark-mode') },
