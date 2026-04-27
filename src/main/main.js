@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const { loadConfig, saveConfig } = require('./ai-config')
+const { loadConfig, saveConfig, validateConfig } = require('./ai-config')
 const { streamChat } = require('./ai-adapter')
 
 // Set app name explicitly (needed for macOS menu bar)
@@ -298,14 +298,18 @@ ipcMain.handle('ai-get-config', () => {
   }
 })
 
-// AI: Save config
+// AI: Save config (with validation)
 ipcMain.handle('ai-save-config', (event, newConfig) => {
   const current = loadConfig()
   // If apiKey is the masked placeholder, keep the existing key
   if (newConfig.apiKey === '••••••••' || newConfig.apiKey === '') {
     newConfig.apiKey = current.apiKey
   }
-  saveConfig({ ...current, ...newConfig })
+  const { clean, errors } = validateConfig({ ...current, ...newConfig })
+  if (errors.length > 0) {
+    return { ok: false, errors }
+  }
+  saveConfig(clean)
   return { ok: true }
 })
 

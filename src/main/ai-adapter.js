@@ -53,6 +53,26 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
 
   return new Promise((resolve, reject) => {
     const req = transport.request(reqOptions, (res) => {
+      // Reject non-2xx responses before processing the stream
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        let body = ''
+        res.on('data', (chunk) => { body += chunk.toString() })
+        res.on('end', () => {
+          let message = `HTTP ${res.statusCode}`
+          try {
+            const json = JSON.parse(body)
+            message += `: ${json.error?.message || json.message || json.error || body.slice(0, 200)}`
+          } catch {
+            message += `: ${body.slice(0, 200)}`
+          }
+          const err = new Error(message)
+          err.status = res.statusCode
+          onError?.(err)
+          reject(err)
+        })
+        return
+      }
+
       let buffer = ''
       let done = false  // Guard against onDone firing twice (data: [DONE] + res 'end')
 
