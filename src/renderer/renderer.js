@@ -10,7 +10,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { autocompletion, closeBrackets } from '@codemirror/autocomplete'
+import { closeBrackets } from '@codemirror/autocomplete'
 import { searchKeymap } from '@codemirror/search'
 
 // ── State ──
@@ -30,6 +30,14 @@ if (localStorage.getItem('gabo-dark') !== null) {
   darkMode = localStorage.getItem('gabo-dark') === 'true'
 }
 if (darkMode) document.body.classList.add('dark')
+
+// ── Auto-sync with system theme (only if user hasn't manually set a preference) ──
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (localStorage.getItem('gabo-dark') === null) {
+    darkMode = e.matches
+    document.body.classList.toggle('dark', darkMode)
+  }
+})
 
 // ── Effects ──
 const toggleFocusMode = StateEffect.define()
@@ -376,7 +384,6 @@ function createEditor(content = '') {
           { key: 'Mod-d', run: () => { toggleFocus(); return true } },
           { key: 'Mod-shift-m', run: () => { toggleMdMode(); return true } },
         ]),
-        autocompletion(),
         closeBrackets(),
         checkboxPlugin,
         syntaxHidingPlugin,
@@ -384,7 +391,7 @@ function createEditor(content = '') {
         typewriterScroll,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) { markDirty(); scheduleAutoSave() }
+          if (update.docChanged) { markDirty(); scheduleAutoSave(); updateWordCount() }
         }),
       ]
     }),
@@ -401,6 +408,7 @@ function createEditor(content = '') {
   document.getElementById('empty-state').classList.remove('visible')
   container.style.display = 'block'
   editor.focus()
+  updateWordCount()
   return editor
 }
 
@@ -474,6 +482,15 @@ async function saveFile() {
   }
 }
 
+function updateWordCount() {
+  const el = document.getElementById('word-count')
+  if (!el || !editor) return
+  const text = editor.state.doc.toString()
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0
+  const chars = text.length
+  el.textContent = words === 0 ? '' : `${words.toLocaleString()} words · ${chars.toLocaleString()} chars`
+}
+
 function scheduleAutoSave() {
   clearTimeout(autoSaveTimer)
   autoSaveTimer = setTimeout(() => {
@@ -532,26 +549,37 @@ function closeSwitcher() {
 async function exportPdf() {
   if (!editor) return
   const content = editor.state.doc.toString()
-  // Use marked for PDF export only
   const { marked } = await import('marked')
-  const html = marked.parse(content, { breaks: true, gfm: true })
-  
-  const printWindow = window.open('', '_blank')
-  printWindow.document.write(`<!DOCTYPE html><html><head><title>Gabo Export</title>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-    <style>
-      body{font-family:'Bricolage Grotesque',sans-serif;font-size:14pt;line-height:1.75;color:#1a1a1e;max-width:720px;margin:60px auto;padding:0 40px}
-      h1{font-weight:800;letter-spacing:-0.03em;margin:1.5em 0 .3em}
-      h2{font-weight:700;letter-spacing:-0.03em;margin:1.2em 0 .2em}
-      h3{font-weight:600;letter-spacing:-0.03em;margin:1em 0 .15em}
-      code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:#f5f5f7;padding:2px 6px;border-radius:4px}
-      pre{background:#f5f5f7;border-radius:8px;padding:16px 20px;overflow-x:auto}
-      pre code{background:none;padding:0}
-      blockquote{border-left:3px solid #2f6de1;padding-left:16px;color:#6b6b76}
-      a{color:#2f6de1}
-    </style></head><body>${html}</body></html>`)
-  printWindow.document.close()
-  setTimeout(() => printWindow.print(), 500)
+  const body = marked.parse(content, { breaks: true, gfm: true })
+
+  // Build a self-contained HTML document for PDF rendering.
+  // Fonts are embedded via Google Fonts so the hidden BrowserWindow can load them.
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Gabo Export</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Bricolage Grotesque', sans-serif; font-size: 13pt; line-height: 1.75; color: #1a1a1e; max-width: 660px; margin: 0 auto; padding: 60px 40px; }
+  h1 { font-size: 2em; font-weight: 800; letter-spacing: -0.03em; margin: 1.5em 0 0.3em; }
+  h2 { font-size: 1.5em; font-weight: 700; letter-spacing: -0.03em; margin: 1.2em 0 0.25em; }
+  h3 { font-size: 1.15em; font-weight: 600; letter-spacing: -0.03em; margin: 1em 0 0.2em; }
+  p { margin: 0 0 0.9em; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; background: #f5f5f7; padding: 2px 6px; border-radius: 4px; }
+  pre { background: #f5f5f7; border-radius: 8px; padding: 16px 20px; overflow-x: auto; margin: 1em 0; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 3px solid #2f6de1; padding-left: 16px; color: #6b6b76; margin: 1em 0; }
+  a { color: #2f6de1; }
+  hr { border: none; border-top: 1px solid #dfdfe6; margin: 2em 0; }
+  ul, ol { padding-left: 1.5em; margin: 0 0 0.9em; }
+  li { margin-bottom: 0.25em; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+</style>
+</head><body>${body}</body></html>`
+
+  const savedPath = await window.gaboAPI.exportPdf(html)
+  if (savedPath) {
+    console.log('PDF exported to:', savedPath)
+  }
 }
 
 // ── Menu/IPC Handlers ──
@@ -584,7 +612,24 @@ document.getElementById('switcher-input').addEventListener('keydown', (e) => {
 document.getElementById('switcher-overlay').addEventListener('click', (e) => { if (e.target === document.getElementById('switcher-overlay')) closeSwitcher() })
 
 // ── Initialize ──
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Try to restore the last opened file
+  const lastFile = localStorage.getItem('gabo-last-file')
+  if (lastFile) {
+    try {
+      const result = await window.gaboAPI.openFileByPath(lastFile)
+      if (result) {
+        currentFilePath = result.path
+        isDirty = false
+        createEditor(result.content)
+        updateTitle()
+        return // Skip welcome screen
+      }
+    } catch (_) {
+      // File may have been moved/deleted — fall through to welcome screen
+    }
+  }
+
   createEditor(`# Welcome to Gabo
 
 A minimalist, distraction-free markdown editor.

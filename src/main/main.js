@@ -1,6 +1,9 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
+
+// Set app name explicitly (needed for macOS menu bar)
+app.name = 'Gabo'
 
 let mainWindow
 
@@ -11,26 +14,45 @@ function createWindow() {
     minWidth: 500,
     minHeight: 400,
     titleBarStyle: 'hiddenInset',
-    vibrancy: 'underwindow',
-    backgroundColor: '#1a1a1e',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    transparent: false,
+    backgroundColor: '#f9f9fb', // matches --bg-main in light mode; avoids dark flash
     title: 'Gabo',
     webPreferences: {
       preload: path.join(__dirname, '..', 'renderer', 'preload.js'),
       contextIsolation: true,
-      sandbox: false  // Allow require in renderer for bundled code
+      sandbox: false // Required: preload.js uses require('electron') for contextBridge
     }
   })
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'))
 
+  const isMac = process.platform === 'darwin'
+
   const template = [
+    // macOS: App menu (first item uses app.name)
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
     {
       label: 'File',
       submenu: [
-        { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => mainWindow.webContents.send('menu-open') },
+        { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: () => mainWindow.webContents.send('menu-open') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => mainWindow.webContents.send('menu-save') },
         { type: 'separator' },
-        { label: 'Export PDF...', accelerator: 'CmdOrCtrl+Shift+P', click: () => mainWindow.webContents.send('menu-export-pdf') }
+        { label: 'Export PDF…', accelerator: 'CmdOrCtrl+Shift+P', click: () => mainWindow.webContents.send('menu-export-pdf') }
       ]
     },
     {
@@ -45,14 +67,22 @@ function createWindow() {
       submenu: [
         { label: 'Toggle Focus Mode', accelerator: 'CmdOrCtrl+D', click: () => mainWindow.webContents.send('menu-focus') },
         { label: 'Toggle Markdown Mode', accelerator: 'CmdOrCtrl+Shift+M', click: () => mainWindow.webContents.send('menu-preview') },
-        { label: 'Toggle Zen Mode', accelerator: 'CmdOrCtrl+Shift+Enter', click: () => mainWindow.webContents.send('menu-zen') },
+        { label: 'Toggle Zen Mode', accelerator: 'CmdOrCtrl+Shift+Z', click: () => mainWindow.webContents.send('menu-zen') },
         { type: 'separator' },
         { label: 'Toggle Dark Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => mainWindow.webContents.send('menu-dark-mode') },
         { type: 'separator' },
         { role: 'toggleDevTools' }
       ]
     },
-    { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { role: 'togglefullscreen' }] }
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : []),
+        { role: 'togglefullscreen' }
+      ]
+    }
   ]
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
@@ -123,20 +153,28 @@ ipcMain.handle('open-file-by-path', async (event, filePath) => {
   }
 })
 
-// IPC: Export PDF (print from main process)
+// IPC: Export PDF — renders the provided HTML in a hidden window, exports to PDF
 ipcMain.handle('export-pdf', async (event, html) => {
-  const { pdf } = await mainWindow.webContents.printToPDF({ 
-    marginsType: 1,  // No margins
-    printBackground: true
-  })
   const result = await dialog.showSaveDialog(mainWindow, {
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    defaultPath: 'document.pdf'
   })
-  if (!result.canceled) {
-    fs.writeFileSync(result.filePath, pdf)
+  if (result.canceled) return null
+
+  // Create a hidden BrowserWindow to render the styled HTML for PDF
+  const pdfWin = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } })
+  await pdfWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+
+  try {
+    const pdfData = await pdfWin.webContents.printToPDF({
+      printBackground: true,
+      margins: { marginType: 'printableArea' }
+    })
+    fs.writeFileSync(result.filePath, pdfData)
     return result.filePath
+  } finally {
+    pdfWin.destroy()
   }
-  return null
 })
 
 app.whenReady().then(createWindow)

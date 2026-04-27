@@ -67,13 +67,13 @@
       -webkit-app-region: drag;
       display: flex;
       align-items: center;
-      padding: 0 16px;
+      padding: 0 12px 0 80px; /* 80px left: space for macOS traffic light buttons */
       background: var(--bg-main);
       border-bottom: 1px solid var(--border);
       transition: opacity 0.3s;
     }
     .zen-mode #titlebar { opacity: 0; height: 0; min-height: 0; border: none; padding: 0; overflow: hidden; }
-    .zen-mode #titlebar:hover { opacity: 1; height: 38px; min-height: 38px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+    .zen-mode #titlebar:hover { opacity: 1; height: 38px; min-height: 38px; padding: 0 12px 0 80px; border-bottom: 1px solid var(--border); }
 
     #titlebar-title {
       font-family: var(--font-display);
@@ -87,17 +87,22 @@
     #titlebar-actions { display: flex; gap: 6px; -webkit-app-region: no-drag; }
 
     .titlebar-btn {
-      background: none; border: 1px solid var(--border); border-radius: 6px;
-      padding: 3px 10px; font-family: var(--font-display); font-size: 12px; font-weight: 500;
-      color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 11px;
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: var(--letter-spacing);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      -webkit-app-region: no-drag;
+      white-space: nowrap;
     }
     .titlebar-btn:hover { background: var(--text-primary); color: var(--bg-main); border-color: var(--text-primary); }
-    .titlebar-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-
-    #btn-md {
-      font-family: var(--font-mono);
-      letter-spacing: -0.02em;
-    }
+    .titlebar-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     #editor-wrapper {
       height: calc(100vh - 38px);
@@ -256,6 +261,44 @@
     #empty-state h2 { font-weight:700; font-size:24px; letter-spacing:var(--letter-spacing); color:var(--text-secondary); margin-bottom:8px; }
     #empty-state p { font-size:14px; }
     #empty-state kbd { background:var(--bg-main); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-family:var(--font-mono); font-size:12px; }
+
+    /* ═══ CodeMirror tooltip overrides (fix dark popup in light mode) ═══ */
+    .cm-tooltip {
+      background: var(--bg-editor) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+      color: var(--text-primary) !important;
+    }
+    .cm-tooltip.cm-completionInfo,
+    .cm-completionList {
+      background: var(--bg-editor) !important;
+    }
+    .cm-completionList .cm-completionItem { color: var(--text-primary) !important; }
+    .cm-completionList .cm-completionItem[aria-selected] { background: var(--selection) !important; }
+
+    /* ═══ Word count status bar ═══ */
+    #statusbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 20px;
+      background: transparent;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #word-count {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-faded);
+      letter-spacing: 0;
+      transition: opacity 0.3s;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -283,6 +326,10 @@
       <input type="text" id="switcher-input" placeholder="Search files..." autocomplete="off">
       <ul id="switcher-list"></ul>
     </div>
+  </div>
+
+  <div id="statusbar">
+    <span id="word-count"></span>
   </div>
 
   <script src="renderer.bundle.js"></script>
