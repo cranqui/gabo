@@ -259,6 +259,23 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
   try {
     // Create AbortController so this request can be cancelled from ai-cancel
     currentAiAbortController = new AbortController()
+    const { signal } = currentAiAbortController
+
+    // Chunk timeout: abort if no chunk received in 15 seconds
+    const CHUNK_TIMEOUT_MS = 15000
+    let chunkTimer = setTimeout(() => {
+      currentAiAbortController?.abort()
+      event.sender.send('ai-error', 'Model is taking too long to respond. Try again or use a different model.')
+    }, CHUNK_TIMEOUT_MS)
+
+    const resetChunkTimer = () => {
+      clearTimeout(chunkTimer)
+      chunkTimer = setTimeout(() => {
+        currentAiAbortController?.abort()
+        event.sender.send('ai-error', 'Model is taking too long to respond. Try again or use a different model.')
+      }, CHUNK_TIMEOUT_MS)
+    }
+
     await streamChat({
       baseURL: config.baseURL,
       apiKey: config.apiKey,
@@ -269,22 +286,35 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
       ],
       temperature: config.temperature,
       maxTokens: config.maxTokens,
-      signal: currentAiAbortController.signal,
+      signal,
       onChunk: (text) => {
+        resetChunkTimer()
         event.sender.send('ai-chunk', text)
       },
       onDone: () => {
+        clearTimeout(chunkTimer)
         event.sender.send('ai-done')
       },
       onError: (err) => {
+        clearTimeout(chunkTimer)
         event.sender.send('ai-error', err.message)
       }
     })
   } catch (err) {
     // Don't send error if the request was aborted (user cancelled)
-    if (err.message !== 'Request aborted') {
-      event.sender.send('ai-error', err.message)
+    if (err.message === 'Request aborted') return
+    // Friendly network error messages
+    let msg = err.message
+    if (err.code === 'ECONNREFUSED') {
+      msg = `Cannot connect to ${config.baseURL}. Is the server running?`
+    } else if (err.code === 'ENOTFOUND') {
+      msg = `Cannot resolve host at ${config.baseURL}. Check the Base URL in Settings.`
+    } else if (err.code === 'ECONNRESET') {
+      msg = 'Connection was reset by the server. Try again.'
+    } else if (err.code === 'ETIMEDOUT') {
+      msg = 'Connection timed out. The server may be down or unreachable.'
     }
+    event.sender.send('ai-error', msg)
   } finally {
     currentAiAbortController = null
   }

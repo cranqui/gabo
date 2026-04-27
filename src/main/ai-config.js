@@ -1,10 +1,14 @@
 // src/main/ai-config.js
 // Loads and saves AI provider settings from app.getPath('userData')/ai-config.json
+// API keys are encrypted at rest using Electron's safeStorage API.
 const fs = require('fs')
 const path = require('path')
-const { app } = require('electron')
+const { app, safeStorage } = require('electron')
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'ai-config.json')
+
+// Prefix marker to distinguish encrypted keys from legacy plaintext
+const ENC_PREFIX = 'enc:'
 
 const DEFAULT_CONFIG = {
   provider: 'ollama',       // 'ollama' | 'openai-compatible' | 'hermes'
@@ -16,10 +20,42 @@ const DEFAULT_CONFIG = {
   enabled: true
 }
 
+/**
+ * Encrypt an API key for storage. Returns 'enc:' + base64 string.
+ * If safeStorage is unavailable (e.g. during tests), returns plaintext.
+ */
+function encryptKey(plainText) {
+  if (!plainText) return ''
+  if (!safeStorage.isEncryptionAvailable()) return plainText
+  const encrypted = safeStorage.encryptString(plainText)
+  return ENC_PREFIX + encrypted.toString('base64')
+}
+
+/**
+ * Decrypt an API key from storage. Handles both encrypted ('enc:' + base64)
+ * and legacy plaintext keys for migration.
+ */
+function decryptKey(stored) {
+  if (!stored) return ''
+  // Legacy plaintext key — return as-is (will be re-encrypted on next save)
+  if (!stored.startsWith(ENC_PREFIX)) return stored
+  if (!safeStorage.isEncryptionAvailable()) {
+    // Can't decrypt without safeStorage — this shouldn't happen in production
+    console.error('[Gabo AI] Cannot decrypt API key: safeStorage unavailable')
+    return ''
+  }
+  const buf = Buffer.from(stored.slice(ENC_PREFIX.length), 'base64')
+  return safeStorage.decryptString(buf)
+}
+
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')) }
+      const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'))
+      const config = { ...DEFAULT_CONFIG, ...raw }
+      // Decrypt apiKey for in-memory use
+      config.apiKey = decryptKey(config.apiKey)
+      return config
     }
   } catch (e) {
     console.error('[Gabo AI] Failed to load config:', e)
@@ -28,7 +64,12 @@ function loadConfig() {
 }
 
 function saveConfig(config) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8')
+  // Encrypt apiKey for disk storage, but keep the in-memory config unchanged
+  const toSave = { ...config }
+  if (toSave.apiKey) {
+    toSave.apiKey = encryptKey(toSave.apiKey)
+  }
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(toSave, null, 2), 'utf-8')
 }
 
 function validateConfig(config) {
