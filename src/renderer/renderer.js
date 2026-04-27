@@ -19,7 +19,7 @@ let isDirty = false
 let focusModeOn = false
 let mdModeOn = false       // false = visual (hide syntax), true = show raw markdown
 let zenModeOn = false
-let darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+let darkMode = true // default to dark mode
 let editor = null
 let autoSaveTimer = null
 let switcherSelectedIndex = 0

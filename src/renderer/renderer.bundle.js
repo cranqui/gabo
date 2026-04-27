@@ -28121,7 +28121,7 @@ ${text}</tr>
   var focusModeOn = false;
   var mdModeOn = false;
   var zenModeOn = false;
-  var darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var darkMode = true;
   var editor = null;
   var autoSaveTimer = null;
   var switcherSelectedIndex = 0;

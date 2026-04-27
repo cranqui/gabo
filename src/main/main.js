@@ -17,7 +17,7 @@ function createWindow() {
     vibrancy: 'under-window',
     visualEffectState: 'active',
     transparent: false,
-    backgroundColor: '#e8e8e6', // matches --bg-main in light mode; avoids dark flash
+    backgroundColor: '#1a1a1e', // matches --bg-main in dark mode (default); avoids flash
     title: 'Gabo',
     webPreferences: {
       preload: path.join(__dirname, '..', 'renderer', 'preload.js'),
