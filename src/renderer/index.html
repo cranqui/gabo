@@ -309,56 +309,56 @@
     #empty-state p { font-size:14px; }
     #empty-state kbd { background:var(--bg-main); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-family:var(--font-mono); font-size:12px; }
 
-    /* ═══ Markdown reference / Help modal ═══ */
+    /* ═══ Markdown reference / Help modal — matches palette style ═══ */
     #help-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.3); z-index: 3000;
-      justify-content: center; align-items: center;
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.25); z-index: 3000;
+      justify-content: center; align-items: flex-start; padding-top: 10vh;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     }
     #help-overlay.open { display: flex; }
     #help-box {
       background: var(--bg-editor);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      width: 580px;
+      border-radius: 14px;
+      width: 560px;
       max-height: 78vh;
       overflow-y: auto;
-      scrollbar-width: none;          /* Firefox */
-      -ms-overflow-style: none;       /* IE/Edge */
-      box-shadow: 0 32px 80px rgba(0,0,0,0.25);
-      padding: 32px 36px 28px;
+      scrollbar-width: none; -ms-overflow-style: none;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.22);
     }
-    #help-box::-webkit-scrollbar { display: none; } /* Chrome/Safari */
-    #help-box h2 {
-      font-family: var(--font-display); font-size: 20px; font-weight: 700;
+    #help-box::-webkit-scrollbar { display: none; }
+    #help-title {
+      width: 100%; padding: 18px 22px;
+      font-family: var(--font-display); font-size: 16px; font-weight: 500;
       letter-spacing: var(--letter-spacing); color: var(--text-primary);
-      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
     }
-    .help-section { margin-bottom: 24px; }
-    .help-section h3 {
-      font-family: var(--font-display); font-size: 11px; font-weight: 600;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--text-dim); margin-bottom: 10px;
+    .help-section { padding: 6px 8px; }
+    .help-section-label {
+      font-family: var(--font-display); font-size: 10px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--text-dim); padding: 8px 14px 4px;
     }
     .help-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 7px 0; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 14px; border-radius: 10px;
     }
-    .help-row:last-child { border-bottom: none; }
     .help-syntax {
       font-family: var(--font-mono); font-size: 13px;
-      color: var(--accent); min-width: 180px; flex-shrink: 0;
+      color: var(--accent); min-width: 170px; flex-shrink: 0;
     }
     .help-desc {
-      font-family: var(--font-display); font-size: 14px;
-      color: var(--text-secondary); flex: 1;
+      font-family: var(--font-display); font-size: 15px; font-weight: 500;
+      color: var(--text-primary); flex: 1;
     }
     .help-kbd {
-      font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary);
       background: var(--bg-main); border: 1px solid var(--border);
-      border-radius: 5px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+      border-radius: 6px; padding: 4px 0; white-space: nowrap; flex-shrink: 0;
+      min-width: 80px; text-align: center;
     }
+    .help-section + .help-section { border-top: 1px solid var(--border); }
 
     /* ═══ CodeMirror tooltip overrides (fix dark popup in light mode) ═══ */
     .cm-tooltip {
@@ -495,10 +495,10 @@
   <!-- Markdown Reference (Cmd+Shift+/) -->
   <div id="help-overlay">
     <div id="help-box">
-      <h2>Markdown Reference</h2>
+      <div id="help-title">Markdown Reference</div>
 
       <div class="help-section">
-        <h3>Text Formatting</h3>
+        <div class="help-section-label">Text Formatting</div>
         <div class="help-row"><span class="help-syntax">**bold**</span><span class="help-desc">Bold</span><span class="help-kbd">⌘B</span></div>
         <div class="help-row"><span class="help-syntax">*italic*</span><span class="help-desc">Italic</span><span class="help-kbd">⌘I</span></div>
         <div class="help-row"><span class="help-syntax">`inline code`</span><span class="help-desc">Inline code</span><span class="help-kbd">⌘`</span></div>
@@ -506,14 +506,14 @@
       </div>
 
       <div class="help-section">
-        <h3>Headings</h3>
+        <div class="help-section-label">Headings</div>
         <div class="help-row"><span class="help-syntax"># Heading 1</span><span class="help-desc">Large title</span><span class="help-kbd">⌘1</span></div>
         <div class="help-row"><span class="help-syntax">## Heading 2</span><span class="help-desc">Section title</span><span class="help-kbd">⌘2</span></div>
         <div class="help-row"><span class="help-syntax">### Heading 3</span><span class="help-desc">Subsection</span><span class="help-kbd">⌘3</span></div>
       </div>
 
       <div class="help-section">
-        <h3>Lists &amp; Tasks</h3>
+        <div class="help-section-label">Lists &amp; Tasks</div>
         <div class="help-row"><span class="help-syntax">- item</span><span class="help-desc">Unordered list</span></div>
         <div class="help-row"><span class="help-syntax">1. item</span><span class="help-desc">Ordered list</span></div>
         <div class="help-row"><span class="help-syntax">- [ ] task</span><span class="help-desc">Task (unchecked)</span></div>
@@ -521,8 +521,8 @@
       </div>
 
       <div class="help-section">
-        <h3>Blocks &amp; Links</h3>
-        <div class="help-row"><span class="help-syntax">> quote</span><span class="help-desc">Blockquote</span></div>
+        <div class="help-section-label">Blocks &amp; Links</div>
+        <div class="help-row"><span class="help-syntax">&gt; quote</span><span class="help-desc">Blockquote</span></div>
         <div class="help-row"><span class="help-syntax">---</span><span class="help-desc">Horizontal rule</span></div>
         <div class="help-row"><span class="help-syntax">[text](url)</span><span class="help-desc">Link</span></div>
         <div class="help-row"><span class="help-syntax">![alt](url)</span><span class="help-desc">Image</span></div>
