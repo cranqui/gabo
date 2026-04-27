@@ -28559,7 +28559,8 @@ ${text}</tr>
     if (editor) editor.focus();
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && document.getElementById("help-overlay").classList.contains("open")) {
+      e.preventDefault();
       closeHelp();
     }
   });
@@ -29174,6 +29175,7 @@ ${text}</tr>
     document.getElementById("settings-maxtokens").value = currentAiConfig.maxTokens;
     document.getElementById("settings-ai-enabled").checked = currentAiConfig.enabled;
     updateSettingsDefaults();
+    await loadOllamaModels();
     document.getElementById("settings-test-result").classList.add("hidden");
     document.getElementById("settings-overlay").classList.add("open");
   }
@@ -29193,6 +29195,46 @@ ${text}</tr>
     }
     if (allDefaults.some((d) => d.model === modelInput.value)) {
       modelInput.value = defaults2.model;
+    }
+    loadOllamaModels();
+  }
+  async function loadOllamaModels() {
+    const provider = document.getElementById("settings-provider").value;
+    const selectEl = document.getElementById("settings-model-select");
+    const inputEl = document.getElementById("settings-model");
+    if (provider === "ollama") {
+      selectEl.classList.remove("hidden");
+      inputEl.classList.add("hidden");
+      selectEl.innerHTML = '<option value="">Loading models\u2026</option>';
+      const result = await window.gaboAPI.aiListModels();
+      const currentModel = inputEl.value;
+      if (result.models && result.models.length > 0) {
+        selectEl.innerHTML = "";
+        result.models.forEach((m) => {
+          const opt = document.createElement("option");
+          opt.value = m;
+          opt.textContent = m;
+          if (m === currentModel) opt.selected = true;
+          selectEl.appendChild(opt);
+        });
+        if (currentModel && !result.models.includes(currentModel)) {
+          const opt = document.createElement("option");
+          opt.value = currentModel;
+          opt.textContent = currentModel + " (custom)";
+          opt.selected = true;
+          selectEl.prepend(opt);
+        }
+      } else {
+        selectEl.classList.add("hidden");
+        inputEl.classList.remove("hidden");
+      }
+      selectEl.onchange = () => {
+        inputEl.value = selectEl.value;
+      };
+      selectEl.value = currentModel;
+    } else {
+      selectEl.classList.add("hidden");
+      inputEl.classList.remove("hidden");
     }
   }
   function gatherSettingsConfig() {

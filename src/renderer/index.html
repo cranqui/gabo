@@ -630,6 +630,10 @@
     }
     #settings-test-result.success { background: #d4edda; color: #155724; }
     #settings-test-result.error { background: #f8d7da; color: #721c24; }
+    #settings-model-wrap { flex: 1; display: flex; position: relative; }
+    #settings-model-wrap select,
+    #settings-model-wrap input { width: 100%; }
+    #settings-model-wrap > :not(.hidden) { display: block; }
   </style>
 </head>
 <body>
@@ -836,7 +840,12 @@
           </div>
           <div class="settings-row">
             <label class="settings-label">Model</label>
-            <input type="text" id="settings-model" placeholder="llama3.2" spellcheck="false" autocomplete="off">
+            <div id="settings-model-wrap">
+              <select id="settings-model-select" class="hidden">
+                <option value="">Loading models…</option>
+              </select>
+              <input type="text" id="settings-model" placeholder="llama3.2" spellcheck="false" autocomplete="off">
+            </div>
           </div>
           <div class="settings-row settings-row-buttons">
             <button id="settings-test" class="ai-btn">Save & Test</button>

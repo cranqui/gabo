@@ -304,7 +304,8 @@ ipcMain.handle('ai-get-config', () => {
 ipcMain.handle('ai-save-config', (event, newConfig) => {
   const current = loadConfig()
   // If apiKey is the masked placeholder, keep the existing key
-  if (newConfig.apiKey === '••••••••' || newConfig.apiKey === '') {
+  // (user didn't change it). Treat '' as intentional clear.
+  if (newConfig.apiKey === '••••••••') {
     newConfig.apiKey = current.apiKey
   }
   const { clean, errors } = validateConfig({ ...current, ...newConfig })
