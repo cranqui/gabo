@@ -114,7 +114,7 @@ Renderer
 ### Smarter list continuation 💡
 When pressing Enter inside a list, auto-continue the list marker (`-`, `1.`, `- [ ]`). Currently Enter just creates a blank line.
 
-### Better heading spacing 💡
+### Better heading spacing ✅
 Add visible margin above/below heading lines in visual mode so the document feels more like a rendered page.
 
 ### Word wrap at sentence boundary 💡
@@ -167,8 +167,8 @@ A tighter variant of focus mode that dims everything except the **current senten
 ### Progress / goal bar 💡
 Optional word-count goal (e.g. 500 words). Shows a thin accent-coloured progress bar at the bottom as you write toward the target.
 
-### Smooth dark/light transition 💡
-Animate the colour change on theme toggle with a ~200ms CSS transition on `body` background and text.
+### Smooth dark/light transition ✅
+Animate the colour change on theme toggle with CSS transitions on `body`, `.cm-editor`, titlebar, and key UI elements.
 
 ---
 
