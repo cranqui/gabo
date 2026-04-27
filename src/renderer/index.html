@@ -132,7 +132,9 @@
     .cm-editor .cm-cursor { border-left-color: var(--accent) !important; border-left-width: 2px !important; }
     .cm-editor .cm-selectionBackground, .cm-editor ::selection { background: var(--selection) !important; }
     .cm-editor .cm-gutters { display: none !important; }
-    .cm-editor .cm-focused { outline: none !important; }
+    .cm-editor.cm-focused { outline: none !important; }
+    .cm-editor .cm-scroller:focus { outline: none !important; }
+    .cm-editor .cm-content:focus { outline: none !important; }
     .cm-editor .cm-scroller { overflow: visible !important; }
     .cm-editor .cm-line { padding: 0 !important; }
 
