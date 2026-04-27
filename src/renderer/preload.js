@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('gaboAPI', {
   exportPdf: (html) => ipcRenderer.invoke('export-pdf', html),
   renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
 
+  onMenuNew: (cb) => { ipcRenderer.removeAllListeners('menu-new'); ipcRenderer.on('menu-new', cb) },
   onMenuOpen: (cb) => { ipcRenderer.removeAllListeners('menu-open'); ipcRenderer.on('menu-open', cb) },
   onMenuSave: (cb) => { ipcRenderer.removeAllListeners('menu-save'); ipcRenderer.on('menu-save', cb) },
   onMenuExportPdf: (cb) => { ipcRenderer.removeAllListeners('menu-export-pdf'); ipcRenderer.on('menu-export-pdf', cb) },

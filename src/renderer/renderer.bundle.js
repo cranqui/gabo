@@ -28454,6 +28454,10 @@ ${text}</tr>
             ...historyKeymap,
             ...searchKeymap,
             indentWithTab,
+            { key: "Mod-n", run: () => {
+              createNewFile();
+              return true;
+            } },
             { key: "Mod-s", run: () => {
               saveFile();
               return true;
@@ -28572,6 +28576,12 @@ ${text}</tr>
     }
     updateTitle();
   }
+  function createNewFile() {
+    currentFilePath = null;
+    isDirty = false;
+    createEditor("");
+    updateTitle();
+  }
   async function openFile() {
     const result = await window.gaboAPI.openFile();
     if (!result) return;
@@ -28617,11 +28627,12 @@ ${text}</tr>
     }, 2e3);
   }
   var PALETTE_COMMANDS = [
+    { icon: "\u2726", label: "New Note", kbd: "\u2318N", action: () => createNewFile() },
     { icon: "\u{1F4C2}", label: "Open File", kbd: "\u2318O", action: () => openFile() },
     { icon: "\u{1F4BE}", label: "Save", kbd: "\u2318S", action: () => saveFile() },
     { icon: "\u{1F50D}", label: "Browse Files", kbd: "\u2318P", action: () => openSwitcher() },
     { icon: "\u25CE", label: "Focus Mode", kbd: "\u2318D", action: () => toggleFocus() },
-    { icon: "\u2726", label: "Zen Mode", kbd: "\u2318\u21E7Z", action: () => toggleZen() },
+    { icon: "\u2B21", label: "Zen Mode", kbd: "\u2318\u21E7Z", action: () => toggleZen() },
     { icon: "\u2325", label: "Toggle Markdown", kbd: "\u2318\u21E7M", action: () => toggleMdMode() },
     { icon: "\u25D1", label: "Toggle Dark Mode", kbd: "\u2318\u21E7D", action: () => toggleDarkMode() },
     { icon: "\u2197", label: "Export PDF", kbd: "\u2318\u21E7P", action: () => exportPdf() }
@@ -28749,6 +28760,7 @@ ${text}</tr>
       console.log("PDF exported to:", savedPath);
     }
   }
+  window.gaboAPI.onMenuNew(() => createNewFile());
   window.gaboAPI.onMenuOpen(() => openFile());
   window.gaboAPI.onMenuSave(() => saveFile());
   window.gaboAPI.onMenuExportPdf(() => exportPdf());

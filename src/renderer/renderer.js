@@ -380,6 +380,7 @@ function createEditor(content = '') {
         }),
         keymap.of([
           ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab,
+          { key: 'Mod-n', run: () => { createNewFile(); return true } },
           { key: 'Mod-s', run: () => { saveFile(); return true } },
           { key: 'Mod-d', run: () => { toggleFocus(); return true } },
           { key: 'Mod-shift-m', run: () => { toggleMdMode(); return true } },
@@ -489,6 +490,13 @@ async function renameFile(newBaseName) {
   updateTitle()
 }
 
+function createNewFile() {
+  currentFilePath = null
+  isDirty = false
+  createEditor('')
+  updateTitle()
+}
+
 async function openFile() {
   const result = await window.gaboAPI.openFile()
   if (!result) return
@@ -532,11 +540,12 @@ function scheduleAutoSave() {
 
 // ── Command Palette ──
 const PALETTE_COMMANDS = [
+  { icon: '✦',  label: 'New Note',          kbd: '⌘N',       action: () => createNewFile() },
   { icon: '📂', label: 'Open File',         kbd: '⌘O',       action: () => openFile() },
   { icon: '💾', label: 'Save',              kbd: '⌘S',       action: () => saveFile() },
   { icon: '🔍', label: 'Browse Files',      kbd: '⌘P',       action: () => openSwitcher() },
   { icon: '◎',  label: 'Focus Mode',        kbd: '⌘D',       action: () => toggleFocus() },
-  { icon: '✦',  label: 'Zen Mode',          kbd: '⌘⇧Z',      action: () => toggleZen() },
+  { icon: '⬡',  label: 'Zen Mode',          kbd: '⌘⇧Z',      action: () => toggleZen() },
   { icon: '⌥',  label: 'Toggle Markdown',   kbd: '⌘⇧M',      action: () => toggleMdMode() },
   { icon: '◑',  label: 'Toggle Dark Mode',  kbd: '⌘⇧D',      action: () => toggleDarkMode() },
   { icon: '↗',  label: 'Export PDF',        kbd: '⌘⇧P',      action: () => exportPdf() },
@@ -668,6 +677,7 @@ async function exportPdf() {
 }
 
 // ── Menu/IPC Handlers ──
+window.gaboAPI.onMenuNew(() => createNewFile())
 window.gaboAPI.onMenuOpen(() => openFile())
 window.gaboAPI.onMenuSave(() => saveFile())
 window.gaboAPI.onMenuExportPdf(() => exportPdf())
