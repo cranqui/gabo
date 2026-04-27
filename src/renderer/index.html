@@ -506,6 +506,31 @@
       transition: opacity 0.15s;
     }
     #ai-custom-submit:hover { opacity: 0.85; }
+    #ai-variations-toggle {
+      padding: 6px 20px 10px; user-select: none;
+    }
+    #ai-variations-toggle label {
+      font-family: var(--font-display); font-size: 12px; color: var(--text-dim);
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    #ai-variations-check { accent-color: var(--accent); cursor: pointer; }
+    .ai-variations-hint { color: var(--text-dim); opacity: 0.6; }
+    #ai-variations-tabs {
+      display: flex; gap: 4px; margin-bottom: 8px;
+    }
+    .ai-var-tab {
+      flex: 1; font-family: var(--font-display); font-size: 11px; font-weight: 500;
+      padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-dim); cursor: pointer;
+      transition: all 0.15s; text-align: center;
+    }
+    .ai-var-tab:hover { border-color: var(--accent); color: var(--text-primary); }
+    .ai-var-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    .ai-var-tab.streaming { opacity: 0.5; }
+    .ai-var-tab.done { opacity: 1; }
+    .ai-var-tab.error { text-decoration: line-through; opacity: 0.4; }
     #ai-response {
       padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;
     }
@@ -760,6 +785,11 @@
         <button class="ai-action" data-action="rephrase">Rephrase</button>
       </div>
 
+      <!-- Variations toggle -->
+      <div id="ai-variations-toggle">
+        <label><input type="checkbox" id="ai-variations-check"> ✦ Variations <span class="ai-variations-hint">(3 takes)</span></label>
+      </div>
+
       <!-- Custom prompt -->
       <div id="ai-custom">
         <input type="text" id="ai-prompt-input" placeholder="Ask anything about your text…" spellcheck="false" autocomplete="off">
@@ -773,6 +803,11 @@
           <div id="ai-original-text"></div>
         </div>
         <div id="ai-result">
+          <div id="ai-variations-tabs" class="hidden">
+            <button class="ai-var-tab active" data-variation="0">Precise</button>
+            <button class="ai-var-tab" data-variation="1">Balanced</button>
+            <button class="ai-var-tab" data-variation="2">Creative</button>
+          </div>
           <div id="ai-result-label">AI Suggestion</div>
           <div id="ai-result-text"></div>
           <div id="ai-streaming-cursor" class="hidden">▍</div>

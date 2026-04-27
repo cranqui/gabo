@@ -28983,6 +28983,11 @@ ${text}</tr>
   var aiCurrentAction = null;
   var aiCurrentCustomPrompt = null;
   var aiIsStreaming = false;
+  var aiVariationMode = false;
+  var aiVariationResults = ["", "", ""];
+  var aiVariationDone = [false, false, false];
+  var aiVariationError = [null, null, null];
+  var aiActiveVariation = 0;
   function openAiPanel() {
     if (editor) {
       const sel = editor.state.selection.main;
@@ -29002,8 +29007,15 @@ ${text}</tr>
     document.getElementById("ai-stop-bar").classList.add("hidden");
     document.getElementById("ai-loading").classList.add("hidden");
     document.getElementById("ai-error").classList.add("hidden");
+    document.getElementById("ai-variations-tabs").classList.add("hidden");
+    document.getElementById("ai-variations-toggle").classList.remove("hidden");
     aiResultText = "";
     aiIsStreaming = false;
+    aiVariationMode = document.getElementById("ai-variations-check").checked;
+    aiVariationResults = ["", "", ""];
+    aiVariationDone = [false, false, false];
+    aiVariationError = [null, null, null];
+    aiActiveVariation = 0;
     const actionsDiv = document.getElementById("ai-actions");
     const customDiv = document.getElementById("ai-custom");
     if (aiOriginalText) {
@@ -29024,6 +29036,7 @@ ${text}</tr>
       window.gaboAPI.aiCancel();
       aiIsStreaming = false;
     }
+    document.getElementById("ai-variations-tabs").classList.add("hidden");
     if (editor) editor.focus();
   }
   function buildDocContext() {
@@ -29067,44 +29080,128 @@ ${text}</tr>
     }
     document.getElementById("ai-actions").classList.add("hidden");
     document.getElementById("ai-custom").classList.add("hidden");
+    document.getElementById("ai-variations-toggle").classList.add("hidden");
     document.getElementById("ai-response").classList.add("hidden");
     document.getElementById("ai-loading").classList.remove("hidden");
     document.getElementById("ai-streaming-cursor").classList.remove("hidden");
     document.getElementById("ai-actions-bar").classList.add("hidden");
     document.getElementById("ai-stop-bar").classList.remove("hidden");
     document.getElementById("ai-error").classList.add("hidden");
+    document.getElementById("ai-variations-tabs").classList.add("hidden");
     let firstChunkReceived = false;
     const promptForCustom = action === "custom" ? customPromptText : null;
-    window.gaboAPI.onAiChunk((text) => {
-      if (!aiIsStreaming) return;
-      if (!firstChunkReceived) {
-        firstChunkReceived = true;
+    aiVariationMode = document.getElementById("ai-variations-check").checked;
+    if (aiVariationMode) {
+      aiVariationResults = ["", "", ""];
+      aiVariationDone = [false, false, false];
+      aiVariationError = [null, null, null];
+      aiActiveVariation = 0;
+    }
+    if (aiVariationMode) {
+      window.gaboAPI.onAiVariationChunk(({ index, text }) => {
+        if (!aiIsStreaming) return;
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          document.getElementById("ai-loading").classList.add("hidden");
+          document.getElementById("ai-response").classList.remove("hidden");
+          document.getElementById("ai-variations-tabs").classList.remove("hidden");
+          document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
+          updateVariationTabStyles();
+        }
+        aiVariationResults[index] += text;
+        if (index === aiActiveVariation) {
+          aiResultText = aiVariationResults[index];
+          document.getElementById("ai-result-text").textContent = aiResultText;
+          const el = document.getElementById("ai-result-text");
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+      window.gaboAPI.onAiVariationDone(({ index }) => {
+        aiVariationDone[index] = true;
+        updateVariationTabStyles();
+        if (index === aiActiveVariation) {
+          aiResultText = aiVariationResults[index];
+        }
+        if (aiVariationDone.every(Boolean)) {
+          aiIsStreaming = false;
+          document.getElementById("ai-streaming-cursor").classList.add("hidden");
+          document.getElementById("ai-stop-bar").classList.add("hidden");
+          document.getElementById("ai-actions-bar").classList.remove("hidden");
+        }
+      });
+      window.gaboAPI.onAiVariationError(({ index, error }) => {
+        aiVariationError[index] = error;
+        aiVariationDone[index] = true;
+        updateVariationTabStyles();
+        if (index === aiActiveVariation) {
+          document.getElementById("ai-result-text").textContent = "\u26A0 " + error;
+          aiResultText = "";
+        }
+        if (aiVariationDone.every(Boolean)) {
+          aiIsStreaming = false;
+          document.getElementById("ai-streaming-cursor").classList.add("hidden");
+          document.getElementById("ai-stop-bar").classList.add("hidden");
+          document.getElementById("ai-actions-bar").classList.remove("hidden");
+        }
+      });
+      const docContext = buildDocContext();
+      await window.gaboAPI.aiRequestVariations(action, textToSend, promptForCustom, docContext);
+    } else {
+      window.gaboAPI.onAiChunk((text) => {
+        if (!aiIsStreaming) return;
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          document.getElementById("ai-loading").classList.add("hidden");
+          document.getElementById("ai-response").classList.remove("hidden");
+          document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
+          document.getElementById("ai-result-text").textContent = "";
+        }
+        aiResultText += text;
+        document.getElementById("ai-result-text").textContent = aiResultText;
+        const resultEl = document.getElementById("ai-result-text");
+        resultEl.scrollTop = resultEl.scrollHeight;
+      });
+      window.gaboAPI.onAiDone(() => {
+        aiIsStreaming = false;
+        document.getElementById("ai-streaming-cursor").classList.add("hidden");
+        document.getElementById("ai-stop-bar").classList.add("hidden");
+        document.getElementById("ai-actions-bar").classList.remove("hidden");
+      });
+      window.gaboAPI.onAiError((errMsg) => {
+        aiIsStreaming = false;
+        document.getElementById("ai-response").classList.add("hidden");
         document.getElementById("ai-loading").classList.add("hidden");
-        document.getElementById("ai-response").classList.remove("hidden");
-        document.getElementById("ai-original-text").textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? "\u2026" : "");
-        document.getElementById("ai-result-text").textContent = "";
-      }
-      aiResultText += text;
+        document.getElementById("ai-stop-bar").classList.add("hidden");
+        document.getElementById("ai-error-text").textContent = errMsg;
+        document.getElementById("ai-error").classList.remove("hidden");
+      });
+      const docContext = buildDocContext();
+      await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext);
+    }
+  }
+  function updateVariationTabStyles() {
+    const tabs = document.querySelectorAll(".ai-var-tab");
+    tabs.forEach((tab, i) => {
+      tab.classList.remove("active", "streaming", "done", "error");
+      if (i === aiActiveVariation) tab.classList.add("active");
+      if (aiVariationError[i]) tab.classList.add("error");
+      else if (aiVariationDone[i]) tab.classList.add("done");
+      else tab.classList.add("streaming");
+    });
+  }
+  function switchVariationTab(index) {
+    if (index === aiActiveVariation) return;
+    aiActiveVariation = index;
+    if (aiVariationError[index]) {
+      document.getElementById("ai-result-text").textContent = "\u26A0 " + aiVariationError[index];
+      aiResultText = "";
+    } else {
+      aiResultText = aiVariationResults[index];
       document.getElementById("ai-result-text").textContent = aiResultText;
-      const resultEl = document.getElementById("ai-result-text");
-      resultEl.scrollTop = resultEl.scrollHeight;
-    });
-    window.gaboAPI.onAiDone(() => {
-      aiIsStreaming = false;
-      document.getElementById("ai-streaming-cursor").classList.add("hidden");
-      document.getElementById("ai-stop-bar").classList.add("hidden");
-      document.getElementById("ai-actions-bar").classList.remove("hidden");
-    });
-    window.gaboAPI.onAiError((errMsg) => {
-      aiIsStreaming = false;
-      document.getElementById("ai-response").classList.add("hidden");
-      document.getElementById("ai-loading").classList.add("hidden");
-      document.getElementById("ai-stop-bar").classList.add("hidden");
-      document.getElementById("ai-error-text").textContent = errMsg;
-      document.getElementById("ai-error").classList.remove("hidden");
-    });
-    const docContext = buildDocContext();
-    await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext);
+    }
+    const cursorHidden = aiVariationDone[index];
+    document.getElementById("ai-streaming-cursor").classList.toggle("hidden", cursorHidden);
+    updateVariationTabStyles();
   }
   function aiReplace() {
     if (!editor || !aiResultText) return;
@@ -29172,6 +29269,12 @@ ${text}</tr>
   document.getElementById("ai-discard").addEventListener("click", aiDiscard);
   document.getElementById("ai-stop").addEventListener("click", aiStop);
   document.getElementById("ai-close").addEventListener("click", closeAiPanel);
+  document.querySelectorAll(".ai-var-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const index = parseInt(tab.dataset.variation, 10);
+      switchVariationTab(index);
+    });
+  });
   document.getElementById("ai-error-retry").addEventListener("click", () => {
     sendAiRequest(aiCurrentAction, aiCurrentCustomPrompt || void 0);
   });

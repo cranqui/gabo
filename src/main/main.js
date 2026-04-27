@@ -228,6 +228,7 @@ function buildUserPrompt(action, selectedText) {
 
 // Track in-flight AI request for cancellation via AbortController
 let currentAiAbortController = null
+const variationAbortControllers = []
 
 // AI: Send request (streaming)
 ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt, docContext }) => {
@@ -374,12 +375,123 @@ ipcMain.handle('ai-test', async (event) => {
 
 // AI: Cancel in-flight request
 ipcMain.handle('ai-cancel', () => {
+  let cancelled = false
   if (currentAiAbortController) {
     currentAiAbortController.abort()
     currentAiAbortController = null
-    return { ok: true }
+    cancelled = true
   }
-  return { ok: false }
+  variationAbortControllers.forEach(c => c?.abort())
+  variationAbortControllers.length = 0
+  return { ok: cancelled }
+})
+
+// AI: Variations — 3 parallel requests with offset temperatures
+const VARIATION_TEMPS = [0, +0.2, +0.5] // base, slightly creative, more creative
+
+ipcMain.handle('ai-request-variations', async (event, { action, selectedText, customPrompt, docContext }) => {
+  const config = loadConfig()
+  if (!config.enabled) {
+    event.sender.send('ai-error', 'AI is disabled. Enable it in Settings (⌘,)')
+    return
+  }
+
+  // Check Ollama availability
+  if (config.provider === 'ollama') {
+    try {
+      const ollamaHttp = require('http')
+      await new Promise((resolve, reject) => {
+        const url = new URL('/', config.baseURL)
+        const req = ollamaHttp.get({ hostname: url.hostname, port: url.port, path: '/', timeout: 3000 }, (res) => {
+          resolve()
+        })
+        req.on('error', reject)
+        req.on('timeout', () => { req.destroy(); reject(new Error('Connection timed out')) })
+      })
+    } catch (e) {
+      event.sender.send('ai-error', 'Ollama is not running. Start Ollama and try again, or change the AI provider in Settings (⌘,)')
+      return
+    }
+  }
+
+  const systemPrompt = buildSystemPrompt(action, docContext)
+  const userPrompt = customPrompt
+    ? `${customPrompt}\n\n${selectedText}`
+    : buildUserPrompt(action, selectedText)
+
+  // Cancel any previous variations
+  variationAbortControllers.forEach(c => c?.abort())
+  variationAbortControllers.length = 0
+
+  const CHUNK_TIMEOUT_MS = 15000
+  const completedVariations = new Set()
+
+  const allDone = VARIATION_TEMPS.map((tempOffset, i) => {
+    return new Promise((resolve) => {
+      const ac = new AbortController()
+      variationAbortControllers[i] = ac
+
+      let chunkTimer = setTimeout(() => {
+        ac.abort()
+        event.sender.send('ai-variation-error', { index: i, error: 'Model is taking too long to respond.' })
+        resolve()
+      }, CHUNK_TIMEOUT_MS)
+
+      const resetChunkTimer = () => {
+        clearTimeout(chunkTimer)
+        chunkTimer = setTimeout(() => {
+          ac.abort()
+          event.sender.send('ai-variation-error', { index: i, error: 'Model is taking too long to respond.' })
+          resolve()
+        }, CHUNK_TIMEOUT_MS)
+      }
+
+      const temp = Math.min(Math.max(config.temperature + tempOffset, 0), 2)
+
+      streamChat({
+        baseURL: config.baseURL,
+        apiKey: config.apiKey,
+        model: config.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: temp,
+        maxTokens: config.maxTokens,
+        signal: ac.signal,
+        onChunk: (text) => {
+          resetChunkTimer()
+          event.sender.send('ai-variation-chunk', { index: i, text })
+        },
+        onDone: () => {
+          clearTimeout(chunkTimer)
+          event.sender.send('ai-variation-done', { index: i })
+          completedVariations.add(i)
+          resolve()
+        },
+        onError: (err) => {
+          clearTimeout(chunkTimer)
+          // Don't send if aborted (user cancel)
+          if (ac.signal.aborted) { resolve(); return }
+          event.sender.send('ai-variation-error', { index: i, error: err.message })
+          resolve()
+        }
+      }).catch(err => {
+        clearTimeout(chunkTimer)
+        if (ac.signal.aborted) { resolve(); return }
+        let msg = err.message
+        if (err.code === 'ECONNREFUSED') msg = `Cannot connect to ${config.baseURL}. Is the server running?`
+        else if (err.code === 'ENOTFOUND') msg = `Cannot resolve host at ${config.baseURL}. Check the Base URL in Settings.`
+        else if (err.code === 'ECONNRESET') msg = 'Connection was reset by the server.'
+        else if (err.code === 'ETIMEDOUT') msg = 'Connection timed out. The server may be down.'
+        event.sender.send('ai-variation-error', { index: i, error: msg })
+        resolve()
+      })
+    })
+  })
+
+  await Promise.all(allDone)
+  variationAbortControllers.length = 0
 })
 
 // AI: List Ollama models

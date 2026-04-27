@@ -914,6 +914,13 @@ let aiCurrentAction = null
 let aiCurrentCustomPrompt = null
 let aiIsStreaming = false
 
+// ── Variations state ──
+let aiVariationMode = false        // whether variations checkbox is on
+let aiVariationResults = ['', '', ''] // accumulated text per variation
+let aiVariationDone = [false, false, false]
+let aiVariationError = [null, null, null]
+let aiActiveVariation = 0           // currently visible tab (0-2)
+
 function openAiPanel() {
   if (editor) {
     const sel = editor.state.selection.main
@@ -935,8 +942,15 @@ function openAiPanel() {
   document.getElementById('ai-stop-bar').classList.add('hidden')
   document.getElementById('ai-loading').classList.add('hidden')
   document.getElementById('ai-error').classList.add('hidden')
+  document.getElementById('ai-variations-tabs').classList.add('hidden')
+  document.getElementById('ai-variations-toggle').classList.remove('hidden')
   aiResultText = ''
   aiIsStreaming = false
+  aiVariationMode = document.getElementById('ai-variations-check').checked
+  aiVariationResults = ['', '', '']
+  aiVariationDone = [false, false, false]
+  aiVariationError = [null, null, null]
+  aiActiveVariation = 0
 
   // Show/hide actions section based on selection
   const actionsDiv = document.getElementById('ai-actions')
@@ -962,6 +976,8 @@ function closeAiPanel() {
     window.gaboAPI.aiCancel()
     aiIsStreaming = false
   }
+  // Hide variation tabs
+  document.getElementById('ai-variations-tabs').classList.add('hidden')
   if (editor) editor.focus()
 }
 
@@ -1024,51 +1040,148 @@ async function sendAiRequest(action, customPromptText) {
   // Show loading spinner initially, before first chunk arrives
   document.getElementById('ai-actions').classList.add('hidden')
   document.getElementById('ai-custom').classList.add('hidden')
+  document.getElementById('ai-variations-toggle').classList.add('hidden')
   document.getElementById('ai-response').classList.add('hidden')
   document.getElementById('ai-loading').classList.remove('hidden')
   document.getElementById('ai-streaming-cursor').classList.remove('hidden')
   document.getElementById('ai-actions-bar').classList.add('hidden')
   document.getElementById('ai-stop-bar').classList.remove('hidden')
   document.getElementById('ai-error').classList.add('hidden')
+  document.getElementById('ai-variations-tabs').classList.add('hidden')
 
   let firstChunkReceived = false
   const promptForCustom = action === 'custom' ? customPromptText : null
 
-  // Set up chunk listeners (preload removeAllListeners prevents accumulation)
-  window.gaboAPI.onAiChunk((text) => {
-    if (!aiIsStreaming) return // drop stale chunks after cancel/done
-    if (!firstChunkReceived) {
-      firstChunkReceived = true
-      // Transition from loading dots to streaming response
+  // ── Refresh variation mode (may have changed between requests) ──
+  aiVariationMode = document.getElementById('ai-variations-check').checked
+  if (aiVariationMode) {
+    aiVariationResults = ['', '', '']
+    aiVariationDone = [false, false, false]
+    aiVariationError = [null, null, null]
+    aiActiveVariation = 0
+  }
+
+  if (aiVariationMode) {
+    // ── VARIATIONS MODE: 3 parallel streams ──
+    window.gaboAPI.onAiVariationChunk(({ index, text }) => {
+      if (!aiIsStreaming) return
+      if (!firstChunkReceived) {
+        firstChunkReceived = true
+        document.getElementById('ai-loading').classList.add('hidden')
+        document.getElementById('ai-response').classList.remove('hidden')
+        document.getElementById('ai-variations-tabs').classList.remove('hidden')
+        document.getElementById('ai-original-text').textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? '…' : '')
+        updateVariationTabStyles()
+      }
+      aiVariationResults[index] += text
+      if (index === aiActiveVariation) {
+        aiResultText = aiVariationResults[index]
+        document.getElementById('ai-result-text').textContent = aiResultText
+        const el = document.getElementById('ai-result-text')
+        el.scrollTop = el.scrollHeight
+      }
+    })
+
+    window.gaboAPI.onAiVariationDone(({ index }) => {
+      aiVariationDone[index] = true
+      updateVariationTabStyles()
+      if (index === aiActiveVariation) {
+        aiResultText = aiVariationResults[index]
+      }
+      // When all 3 done, finish streaming
+      if (aiVariationDone.every(Boolean)) {
+        aiIsStreaming = false
+        document.getElementById('ai-streaming-cursor').classList.add('hidden')
+        document.getElementById('ai-stop-bar').classList.add('hidden')
+        document.getElementById('ai-actions-bar').classList.remove('hidden')
+      }
+    })
+
+    window.gaboAPI.onAiVariationError(({ index, error }) => {
+      aiVariationError[index] = error
+      aiVariationDone[index] = true // treat as done so we don't wait forever
+      updateVariationTabStyles()
+      if (index === aiActiveVariation) {
+        // Show error in result area
+        document.getElementById('ai-result-text').textContent = '⚠ ' + error
+        aiResultText = ''
+      }
+      if (aiVariationDone.every(Boolean)) {
+        aiIsStreaming = false
+        document.getElementById('ai-streaming-cursor').classList.add('hidden')
+        document.getElementById('ai-stop-bar').classList.add('hidden')
+        document.getElementById('ai-actions-bar').classList.remove('hidden')
+      }
+    })
+
+    const docContext = buildDocContext()
+    await window.gaboAPI.aiRequestVariations(action, textToSend, promptForCustom, docContext)
+
+  } else {
+    // ── SINGLE REQUEST MODE (original behavior) ──
+    window.gaboAPI.onAiChunk((text) => {
+      if (!aiIsStreaming) return
+      if (!firstChunkReceived) {
+        firstChunkReceived = true
+        document.getElementById('ai-loading').classList.add('hidden')
+        document.getElementById('ai-response').classList.remove('hidden')
+        document.getElementById('ai-original-text').textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? '…' : '')
+        document.getElementById('ai-result-text').textContent = ''
+      }
+      aiResultText += text
+      document.getElementById('ai-result-text').textContent = aiResultText
+      const resultEl = document.getElementById('ai-result-text')
+      resultEl.scrollTop = resultEl.scrollHeight
+    })
+
+    window.gaboAPI.onAiDone(() => {
+      aiIsStreaming = false
+      document.getElementById('ai-streaming-cursor').classList.add('hidden')
+      document.getElementById('ai-stop-bar').classList.add('hidden')
+      document.getElementById('ai-actions-bar').classList.remove('hidden')
+    })
+
+    window.gaboAPI.onAiError((errMsg) => {
+      aiIsStreaming = false
+      document.getElementById('ai-response').classList.add('hidden')
       document.getElementById('ai-loading').classList.add('hidden')
-      document.getElementById('ai-response').classList.remove('hidden')
-      document.getElementById('ai-original-text').textContent = textToSend.slice(0, 500) + (textToSend.length > 500 ? '…' : '')
-      document.getElementById('ai-result-text').textContent = ''
-    }
-    aiResultText += text
+      document.getElementById('ai-stop-bar').classList.add('hidden')
+      document.getElementById('ai-error-text').textContent = errMsg
+      document.getElementById('ai-error').classList.remove('hidden')
+    })
+
+    const docContext = buildDocContext()
+    await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext)
+  }
+}
+
+// ── Variations tab helpers ──
+function updateVariationTabStyles() {
+  const tabs = document.querySelectorAll('.ai-var-tab')
+  tabs.forEach((tab, i) => {
+    tab.classList.remove('active', 'streaming', 'done', 'error')
+    if (i === aiActiveVariation) tab.classList.add('active')
+    if (aiVariationError[i]) tab.classList.add('error')
+    else if (aiVariationDone[i]) tab.classList.add('done')
+    else tab.classList.add('streaming')
+  })
+}
+
+function switchVariationTab(index) {
+  if (index === aiActiveVariation) return
+  aiActiveVariation = index
+  // Update result text to reflect the active tab
+  if (aiVariationError[index]) {
+    document.getElementById('ai-result-text').textContent = '⚠ ' + aiVariationError[index]
+    aiResultText = ''
+  } else {
+    aiResultText = aiVariationResults[index]
     document.getElementById('ai-result-text').textContent = aiResultText
-    const resultEl = document.getElementById('ai-result-text')
-    resultEl.scrollTop = resultEl.scrollHeight
-  })
-
-  window.gaboAPI.onAiDone(() => {
-    aiIsStreaming = false
-    document.getElementById('ai-streaming-cursor').classList.add('hidden')
-    document.getElementById('ai-stop-bar').classList.add('hidden')
-    document.getElementById('ai-actions-bar').classList.remove('hidden')
-  })
-
-  window.gaboAPI.onAiError((errMsg) => {
-    aiIsStreaming = false
-    document.getElementById('ai-response').classList.add('hidden')
-    document.getElementById('ai-loading').classList.add('hidden')
-    document.getElementById('ai-stop-bar').classList.add('hidden')
-    document.getElementById('ai-error-text').textContent = errMsg
-    document.getElementById('ai-error').classList.remove('hidden')
-  })
-
-  const docContext = buildDocContext()
-  await window.gaboAPI.aiRequest(action, textToSend, promptForCustom, docContext)
+  }
+  // Show/hide streaming cursor based on whether this variation is still streaming
+  const cursorHidden = aiVariationDone[index]
+  document.getElementById('ai-streaming-cursor').classList.toggle('hidden', cursorHidden)
+  updateVariationTabStyles()
 }
 
 function aiReplace() {
@@ -1143,6 +1256,13 @@ document.getElementById('ai-copy').addEventListener('click', aiCopy)
 document.getElementById('ai-discard').addEventListener('click', aiDiscard)
 document.getElementById('ai-stop').addEventListener('click', aiStop)
 document.getElementById('ai-close').addEventListener('click', closeAiPanel)
+// Variation tab switching
+document.querySelectorAll('.ai-var-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const index = parseInt(tab.dataset.variation, 10)
+    switchVariationTab(index)
+  })
+})
 document.getElementById('ai-error-retry').addEventListener('click', () => {
   sendAiRequest(aiCurrentAction, aiCurrentCustomPrompt || undefined)
 })

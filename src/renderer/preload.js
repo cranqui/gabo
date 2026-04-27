@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('gaboAPI', {
 
   // ── AI Integration ──
   aiRequest: (action, selectedText, customPrompt, docContext) => ipcRenderer.invoke('ai-request', { action, selectedText, customPrompt, docContext }),
+  aiRequestVariations: (action, selectedText, customPrompt, docContext) => ipcRenderer.invoke('ai-request-variations', { action, selectedText, customPrompt, docContext }),
   aiGetConfig: () => ipcRenderer.invoke('ai-get-config'),
   aiSaveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),
   aiTest: () => ipcRenderer.invoke('ai-test'),
@@ -29,6 +30,9 @@ contextBridge.exposeInMainWorld('gaboAPI', {
   onAiChunk: (cb) => { ipcRenderer.removeAllListeners('ai-chunk'); ipcRenderer.on('ai-chunk', (_, text) => cb(text)) },
   onAiDone: (cb) => { ipcRenderer.removeAllListeners('ai-done'); ipcRenderer.on('ai-done', () => cb()) },
   onAiError: (cb) => { ipcRenderer.removeAllListeners('ai-error'); ipcRenderer.on('ai-error', (_, err) => cb(err)) },
+  onAiVariationChunk: (cb) => { ipcRenderer.removeAllListeners('ai-variation-chunk'); ipcRenderer.on('ai-variation-chunk', (_, data) => cb(data)) },
+  onAiVariationDone: (cb) => { ipcRenderer.removeAllListeners('ai-variation-done'); ipcRenderer.on('ai-variation-done', (_, data) => cb(data)) },
+  onAiVariationError: (cb) => { ipcRenderer.removeAllListeners('ai-variation-error'); ipcRenderer.on('ai-variation-error', (_, data) => cb(data)) },
   onMenuAi: (cb) => { ipcRenderer.removeAllListeners('menu-ai'); ipcRenderer.on('menu-ai', cb) },
   onMenuSettings: (cb) => { ipcRenderer.removeAllListeners('menu-settings'); ipcRenderer.on('menu-settings', cb) }
 })
