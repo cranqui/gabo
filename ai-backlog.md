@@ -986,9 +986,10 @@ document.getElementById('settings-temperature').addEventListener('input', (e) =>
   document.getElementById('settings-temperature-val').textContent = e.target.value
 })
 
-// TODO: Validate before save — model name must be non-empty, baseURL must be a valid URL
-// (use `new URL()`), and maxTokens must be a number in [256, 8192]. Surface errors in
-// #settings-test-result with class "error" so the user sees them in-place.
+// ✅ DONE: Validation is now handled server-side in validateConfig() (ai-config.js).
+// baseURL, temperature, maxTokens, and model are validated before saving.
+// ai-save-config returns { ok: false, errors: [...] } if validation fails.
+// The renderer should check for errors and display them in #settings-test-result.
 document.getElementById('settings-save').addEventListener('click', async () => {
   const newConfig = {
     provider: document.getElementById('settings-provider').value,
@@ -1063,6 +1064,7 @@ Add to command palette:
 - **Timeout**: 30s timeout on streaming; if no chunks received in 10s, show "Model is taking too long to respond"
 - **Empty selection**: If no text is selected, prompt for custom instruction (hide preset actions, show input only)
 - **Network errors**: Catch ECONNREFUSED and show "Cannot connect to {baseURL}"
+- **HTTP status errors** ✅ DONE: Non-2xx responses (401, 429, 404, etc.) now rejected before SSE parsing. `streamChat` reads the error body and rejects with a clear `HTTP {status}: {message}` error instead of silently swallowing garbage.
 
 ```js
 // In ai-adapter.js — add timeout wrapper
