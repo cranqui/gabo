@@ -944,6 +944,7 @@ function openAiPanel() {
   document.getElementById('ai-error').classList.add('hidden')
   document.getElementById('ai-variations-tabs').classList.add('hidden')
   document.getElementById('ai-variations-toggle').classList.remove('hidden')
+  document.getElementById('ai-translate-row').classList.add('hidden')
   aiResultText = ''
   aiIsStreaming = false
   aiVariationMode = document.getElementById('ai-variations-check').checked
@@ -1041,6 +1042,7 @@ async function sendAiRequest(action, customPromptText) {
   document.getElementById('ai-actions').classList.add('hidden')
   document.getElementById('ai-custom').classList.add('hidden')
   document.getElementById('ai-variations-toggle').classList.add('hidden')
+  document.getElementById('ai-translate-row').classList.add('hidden')
   document.getElementById('ai-response').classList.add('hidden')
   document.getElementById('ai-loading').classList.remove('hidden')
   document.getElementById('ai-streaming-cursor').classList.remove('hidden')
@@ -1236,7 +1238,29 @@ function aiStop() {
 
 // ── AI Panel Event Wiring ──
 document.querySelectorAll('.ai-action').forEach(btn => {
-  btn.addEventListener('click', () => sendAiRequest(btn.dataset.action))
+  btn.addEventListener('click', () => {
+    if (btn.dataset.action === 'translate') {
+      // Show language selector instead of sending immediately
+      document.getElementById('ai-actions').classList.add('hidden')
+      document.getElementById('ai-translate-row').classList.remove('hidden')
+    } else {
+      sendAiRequest(btn.dataset.action)
+    }
+  })
+})
+// Translate: "Go" button sends translate request with selected language
+document.getElementById('ai-translate-go').addEventListener('click', () => {
+  const lang = document.getElementById('ai-translate-lang').value
+  sendAiRequest('translate', `Translate the following text to ${lang}`)
+  document.getElementById('ai-translate-row').classList.add('hidden')
+})
+// Translate: Escape/cancel returns to actions
+document.getElementById('ai-translate-lang').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    document.getElementById('ai-translate-row').classList.add('hidden')
+    document.getElementById('ai-actions').classList.remove('hidden')
+  }
 })
 document.getElementById('ai-custom-submit').addEventListener('click', () => {
   const prompt = document.getElementById('ai-prompt-input').value.trim()

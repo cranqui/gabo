@@ -219,9 +219,8 @@ function buildSystemPrompt(action, docContext) {
 
 function buildUserPrompt(action, selectedText) {
   const instruction = ACTION_PROMPTS[action] || ACTION_PROMPTS['custom']
-  // TODO: add translate case here when language selector UI exists
-  if (action === 'custom') {
-    return selectedText  // For custom, selectedText IS the prompt + content
+  if (action === 'custom' || action === 'translate') {
+    return selectedText  // For custom/translate, customPrompt is provided separately
   }
   return `${instruction}\n\n${selectedText}`
 }

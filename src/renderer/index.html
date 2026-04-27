@@ -506,6 +506,21 @@
       transition: opacity 0.15s;
     }
     #ai-custom-submit:hover { opacity: 0.85; }
+    #ai-translate-row {
+      display: flex; align-items: center; gap: 8px; padding: 4px 20px 8px;
+    }
+    #ai-translate-label {
+      font-family: var(--font-display); font-size: 12px; color: var(--text-dim);
+      white-space: nowrap;
+    }
+    #ai-translate-lang {
+      flex: 1; font-family: var(--font-display); font-size: 13px;
+      background: var(--bg-main); color: var(--text-primary);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 10px; outline: none; cursor: pointer;
+    }
+    #ai-translate-lang:focus { border-color: var(--accent); }
+    #ai-translate-go { padding: 6px 16px !important; }
     #ai-variations-toggle {
       padding: 6px 20px 10px; user-select: none;
     }
@@ -783,6 +798,27 @@
         <button class="ai-action" data-action="summarize">Summarize</button>
         <button class="ai-action" data-action="simplify">Simplify</button>
         <button class="ai-action" data-action="rephrase">Rephrase</button>
+        <button class="ai-action" data-action="translate">Translate</button>
+      </div>
+
+      <!-- Translate language selector (shown when Translate action picked) -->
+      <div id="ai-translate-row" class="hidden">
+        <span id="ai-translate-label">To:</span>
+        <select id="ai-translate-lang">
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
+          <option value="Portuguese">Portuguese</option>
+          <option value="Italian">Italian</option>
+          <option value="Dutch">Dutch</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Korean">Korean</option>
+          <option value="Russian">Russian</option>
+          <option value="Arabic">Arabic</option>
+          <option value="English">English</option>
+        </select>
+        <button class="ai-action" id="ai-translate-go">Go</button>
       </div>
 
       <!-- Variations toggle -->
