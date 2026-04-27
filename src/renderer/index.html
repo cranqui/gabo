@@ -309,6 +309,54 @@
     #empty-state p { font-size:14px; }
     #empty-state kbd { background:var(--bg-main); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-family:var(--font-mono); font-size:12px; }
 
+    /* ═══ Markdown reference / Help modal ═══ */
+    #help-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.3); z-index: 3000;
+      justify-content: center; align-items: center;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    #help-overlay.open { display: flex; }
+    #help-box {
+      background: var(--bg-editor);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: 580px;
+      max-height: 78vh;
+      overflow-y: auto;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.25);
+      padding: 32px 36px 28px;
+    }
+    #help-box h2 {
+      font-family: var(--font-display); font-size: 20px; font-weight: 700;
+      letter-spacing: var(--letter-spacing); color: var(--text-primary);
+      margin-bottom: 20px;
+    }
+    .help-section { margin-bottom: 24px; }
+    .help-section h3 {
+      font-family: var(--font-display); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-dim); margin-bottom: 10px;
+    }
+    .help-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+    }
+    .help-row:last-child { border-bottom: none; }
+    .help-syntax {
+      font-family: var(--font-mono); font-size: 13px;
+      color: var(--accent); min-width: 180px; flex-shrink: 0;
+    }
+    .help-desc {
+      font-family: var(--font-display); font-size: 14px;
+      color: var(--text-secondary); flex: 1;
+    }
+    .help-kbd {
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+      background: var(--bg-main); border: 1px solid var(--border);
+      border-radius: 5px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+    }
+
     /* ═══ CodeMirror tooltip overrides (fix dark popup in light mode) ═══ */
     .cm-tooltip {
       background: var(--bg-editor) !important;
@@ -352,7 +400,7 @@
     .palette-item {
       display: flex; align-items: center; gap: 16px;
       padding: 14px 16px; border-radius: 10px; cursor: pointer;
-      font-family: var(--font-display); font-size: 17px; font-weight: 500;
+      font-family: var(--font-display); font-size: 19px; font-weight: 500;
       color: var(--text-primary); transition: background .08s;
     }
     .palette-item:hover { background: rgba(0,0,0,0.06); }
@@ -420,6 +468,14 @@
           <rect x="8.5" y="8.5" width="4" height="4" rx="1.2" fill="currentColor"/>
         </svg>
       </button>
+      <!-- Markdown reference -->
+      <button class="icon-btn" id="btn-help" title="Markdown Reference (⌘⇧/)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M5.2 5.3C5.2 4.3 6 3.5 7 3.5C8 3.5 8.8 4.3 8.8 5.3C8.8 6.1 8.3 6.8 7.6 7.1C7.3 7.2 7 7.5 7 7.8V8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="7" cy="10.2" r="0.7" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -429,6 +485,45 @@
       <div>
         <h2>Start writing</h2>
         <p>Press <kbd>⌘O</kbd> to open a file, or just start typing</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markdown Reference (Cmd+Shift+/) -->
+  <div id="help-overlay">
+    <div id="help-box">
+      <h2>Markdown Reference</h2>
+
+      <div class="help-section">
+        <h3>Text Formatting</h3>
+        <div class="help-row"><span class="help-syntax">**bold**</span><span class="help-desc">Bold</span><span class="help-kbd">⌘B</span></div>
+        <div class="help-row"><span class="help-syntax">*italic*</span><span class="help-desc">Italic</span><span class="help-kbd">⌘I</span></div>
+        <div class="help-row"><span class="help-syntax">`inline code`</span><span class="help-desc">Inline code</span><span class="help-kbd">⌘`</span></div>
+        <div class="help-row"><span class="help-syntax">~~strikethrough~~</span><span class="help-desc">Strikethrough</span><span class="help-kbd">⌘⇧X</span></div>
+      </div>
+
+      <div class="help-section">
+        <h3>Headings</h3>
+        <div class="help-row"><span class="help-syntax"># Heading 1</span><span class="help-desc">Large title</span><span class="help-kbd">⌘1</span></div>
+        <div class="help-row"><span class="help-syntax">## Heading 2</span><span class="help-desc">Section title</span><span class="help-kbd">⌘2</span></div>
+        <div class="help-row"><span class="help-syntax">### Heading 3</span><span class="help-desc">Subsection</span><span class="help-kbd">⌘3</span></div>
+      </div>
+
+      <div class="help-section">
+        <h3>Lists &amp; Tasks</h3>
+        <div class="help-row"><span class="help-syntax">- item</span><span class="help-desc">Unordered list</span></div>
+        <div class="help-row"><span class="help-syntax">1. item</span><span class="help-desc">Ordered list</span></div>
+        <div class="help-row"><span class="help-syntax">- [ ] task</span><span class="help-desc">Task (unchecked)</span></div>
+        <div class="help-row"><span class="help-syntax">- [x] done</span><span class="help-desc">Task (checked)</span></div>
+      </div>
+
+      <div class="help-section">
+        <h3>Blocks &amp; Links</h3>
+        <div class="help-row"><span class="help-syntax">> quote</span><span class="help-desc">Blockquote</span></div>
+        <div class="help-row"><span class="help-syntax">---</span><span class="help-desc">Horizontal rule</span></div>
+        <div class="help-row"><span class="help-syntax">[text](url)</span><span class="help-desc">Link</span></div>
+        <div class="help-row"><span class="help-syntax">![alt](url)</span><span class="help-desc">Image</span></div>
+        <div class="help-row"><span class="help-syntax">```code```</span><span class="help-desc">Code block</span></div>
       </div>
     </div>
   </div>

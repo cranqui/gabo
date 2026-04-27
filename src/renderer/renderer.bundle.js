@@ -28432,6 +28432,54 @@ ${text}</tr>
       }
     }
   });
+  function wrapWith(view, marker) {
+    const { state } = view;
+    const range = state.selection.main;
+    if (range.empty) {
+      view.dispatch({
+        changes: { from: range.from, insert: marker + marker },
+        selection: { anchor: range.from + marker.length }
+      });
+    } else {
+      const text = state.sliceDoc(range.from, range.to);
+      const wrapped = text.startsWith(marker) && text.endsWith(marker) && text.length > marker.length * 2;
+      view.dispatch({
+        changes: {
+          from: range.from,
+          to: range.to,
+          insert: wrapped ? text.slice(marker.length, -marker.length) : marker + text + marker
+        },
+        selection: wrapped ? { anchor: range.from, head: range.to - marker.length * 2 } : { anchor: range.from + marker.length, head: range.to + marker.length }
+      });
+    }
+    return true;
+  }
+  function toggleHeading(view, level) {
+    const { state } = view;
+    const line = state.doc.lineAt(state.selection.main.head);
+    const prefix = "#".repeat(level) + " ";
+    const m = line.text.match(/^(#{1,6}) /);
+    if (m && m[1] === "#".repeat(level)) {
+      view.dispatch({ changes: { from: line.from, to: line.from + m[0].length, insert: "" } });
+    } else if (m) {
+      view.dispatch({ changes: { from: line.from, to: line.from + m[0].length, insert: prefix } });
+    } else {
+      view.dispatch({ changes: { from: line.from, insert: prefix } });
+    }
+    return true;
+  }
+  function openHelp() {
+    document.getElementById("help-overlay").classList.add("open");
+  }
+  function closeHelp() {
+    document.getElementById("help-overlay").classList.remove("open");
+    if (editor) editor.focus();
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeHelp();
+    }
+  });
   function createEditor(content2 = "") {
     const container = document.getElementById("editor-container");
     if (editor) editor.destroy();
@@ -28477,7 +28525,16 @@ ${text}</tr>
             { key: "Mod-p", run: () => {
               openSwitcher();
               return true;
-            } }
+            } },
+            // ── Text formatting ──
+            { key: "Mod-b", run: (view) => wrapWith(view, "**") },
+            { key: "Mod-i", run: (view) => wrapWith(view, "*") },
+            { key: "Mod-`", run: (view) => wrapWith(view, "`") },
+            { key: "Mod-shift-x", run: (view) => wrapWith(view, "~~") },
+            // ── Headings ──
+            { key: "Mod-1", run: (view) => toggleHeading(view, 1) },
+            { key: "Mod-2", run: (view) => toggleHeading(view, 2) },
+            { key: "Mod-3", run: (view) => toggleHeading(view, 3) }
           ]),
           closeBrackets(),
           checkboxPlugin,
@@ -28635,7 +28692,8 @@ ${text}</tr>
     { icon: "\u2B21", label: "Zen Mode", kbd: "\u2318\u21E7Z", action: () => toggleZen() },
     { icon: "\u2325", label: "Toggle Markdown", kbd: "\u2318\u21E7M", action: () => toggleMdMode() },
     { icon: "\u25D1", label: "Toggle Dark Mode", kbd: "\u2318\u21E7D", action: () => toggleDarkMode() },
-    { icon: "\u2197", label: "Export PDF", kbd: "\u2318\u21E7P", action: () => exportPdf() }
+    { icon: "\u2197", label: "Export PDF", kbd: "\u2318\u21E7P", action: () => exportPdf() },
+    { icon: "?", label: "Markdown Reference", kbd: "\u2318\u21E7/", action: () => openHelp() }
   ];
   var paletteSelectedIndex = 0;
   var paletteFiltered = [...PALETTE_COMMANDS];
@@ -28793,6 +28851,10 @@ ${text}</tr>
   });
   document.getElementById("btn-dark").addEventListener("click", toggleDarkMode);
   document.getElementById("btn-palette").addEventListener("click", openPalette);
+  document.getElementById("btn-help").addEventListener("click", openHelp);
+  document.getElementById("help-overlay").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("help-overlay")) closeHelp();
+  });
   document.getElementById("switcher-input").addEventListener("input", () => {
     switcherSelectedIndex = 0;
     renderSwitcherList();

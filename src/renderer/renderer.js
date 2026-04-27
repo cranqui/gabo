@@ -359,6 +359,61 @@ const typewriterScroll = EditorView.updateListener.of((update) => {
   }
 })
 
+// ── Formatting helpers ──
+function wrapWith(view, marker) {
+  const { state } = view
+  const range = state.selection.main
+  if (range.empty) {
+    // No selection: insert markers and place cursor between them
+    view.dispatch({
+      changes: { from: range.from, insert: marker + marker },
+      selection: { anchor: range.from + marker.length }
+    })
+  } else {
+    const text = state.sliceDoc(range.from, range.to)
+    const wrapped = text.startsWith(marker) && text.endsWith(marker) && text.length > marker.length * 2
+    view.dispatch({
+      changes: {
+        from: range.from, to: range.to,
+        insert: wrapped ? text.slice(marker.length, -marker.length) : marker + text + marker
+      },
+      selection: wrapped
+        ? { anchor: range.from, head: range.to - marker.length * 2 }
+        : { anchor: range.from + marker.length, head: range.to + marker.length }
+    })
+  }
+  return true
+}
+
+function toggleHeading(view, level) {
+  const { state } = view
+  const line = state.doc.lineAt(state.selection.main.head)
+  const prefix = '#'.repeat(level) + ' '
+  const m = line.text.match(/^(#{1,6}) /)
+  if (m && m[1] === '#'.repeat(level)) {
+    view.dispatch({ changes: { from: line.from, to: line.from + m[0].length, insert: '' } })
+  } else if (m) {
+    view.dispatch({ changes: { from: line.from, to: line.from + m[0].length, insert: prefix } })
+  } else {
+    view.dispatch({ changes: { from: line.from, insert: prefix } })
+  }
+  return true
+}
+
+// ── Help modal ──
+function openHelp() {
+  document.getElementById('help-overlay').classList.add('open')
+}
+function closeHelp() {
+  document.getElementById('help-overlay').classList.remove('open')
+  if (editor) editor.focus()
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeHelp()
+  }
+})
+
 // ── Create Editor ──
 function createEditor(content = '') {
   const container = document.getElementById('editor-container')
@@ -386,6 +441,15 @@ function createEditor(content = '') {
           { key: 'Mod-shift-m', run: () => { toggleMdMode(); return true } },
           { key: 'Mod-k', run: () => { openPalette(); return true } },
           { key: 'Mod-p', run: () => { openSwitcher(); return true } },
+          // ── Text formatting ──
+          { key: 'Mod-b', run: (view) => wrapWith(view, '**') },
+          { key: 'Mod-i', run: (view) => wrapWith(view, '*') },
+          { key: 'Mod-`', run: (view) => wrapWith(view, '`') },
+          { key: 'Mod-shift-x', run: (view) => wrapWith(view, '~~') },
+          // ── Headings ──
+          { key: 'Mod-1', run: (view) => toggleHeading(view, 1) },
+          { key: 'Mod-2', run: (view) => toggleHeading(view, 2) },
+          { key: 'Mod-3', run: (view) => toggleHeading(view, 3) },
         ]),
         closeBrackets(),
         checkboxPlugin,
@@ -549,6 +613,7 @@ const PALETTE_COMMANDS = [
   { icon: '⌥',  label: 'Toggle Markdown',   kbd: '⌘⇧M',      action: () => toggleMdMode() },
   { icon: '◑',  label: 'Toggle Dark Mode',  kbd: '⌘⇧D',      action: () => toggleDarkMode() },
   { icon: '↗',  label: 'Export PDF',        kbd: '⌘⇧P',      action: () => exportPdf() },
+  { icon: '?',  label: 'Markdown Reference', kbd: '⌘⇧/',      action: () => openHelp() },
 ]
 
 let paletteSelectedIndex = 0
@@ -706,6 +771,10 @@ titleInput.addEventListener('blur', () => {
 // ── Button Handlers ──
 document.getElementById('btn-dark').addEventListener('click', toggleDarkMode)
 document.getElementById('btn-palette').addEventListener('click', openPalette)
+document.getElementById('btn-help').addEventListener('click', openHelp)
+document.getElementById('help-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('help-overlay')) closeHelp()
+})
 
 // ── Switcher Event Handlers ──
 document.getElementById('switcher-input').addEventListener('input', () => { switcherSelectedIndex = 0; renderSwitcherList() })
