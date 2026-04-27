@@ -426,6 +426,85 @@ function toggleHeading(view, level) {
   return true
 }
 
+// ── Smarter list continuation ──
+// On Enter inside a list item, auto-continue the list marker on the new line.
+// On Enter inside an empty list item, cancel the list (remove marker, leave blank line).
+function handleEnter(view) {
+  const pos = view.state.selection.main.head
+  const line = view.state.doc.lineAt(pos)
+  const text = line.text
+
+  // Match checkbox: `- [ ] ` or `- [x] ` (with optional indent) — check before unordered
+  const cbMatch = text.match(/^(\s*)([-*+])\s\[[ x]\]\s/)
+  // Match unordered list: `- `, `* `, `+ ` (with optional indent)
+  const ulMatch = text.match(/^(\s*)([-*+])\s/)
+  // Match ordered list: `1. ` (with optional indent)
+  const olMatch = text.match(/^(\s*)(\d+)\.\s/)
+
+  // Checkbox list
+  if (cbMatch) {
+    const contentAfter = text.slice(cbMatch[0].length).trim()
+    if (contentAfter === '') {
+      // Empty checkbox → cancel, remove marker
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: cbMatch[1] },
+        selection: { anchor: line.from + cbMatch[1].length }
+      })
+      return true
+    }
+    // Continue checkbox list: insert newline + same indent + "- [ ] "
+    const insert = '\n' + cbMatch[1] + '- [ ] '
+    view.dispatch({
+      changes: { from: pos, insert },
+      selection: { anchor: pos + insert.length }
+    })
+    return true
+  }
+
+  // Unordered list
+  if (ulMatch) {
+    const contentAfter = text.slice(ulMatch[0].length).trim()
+    if (contentAfter === '') {
+      // Empty bullet → cancel, remove marker
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: ulMatch[1] },
+        selection: { anchor: line.from + ulMatch[1].length }
+      })
+      return true
+    }
+    // Continue bullet: insert newline + same indent + same marker + space
+    const insert = '\n' + ulMatch[1] + ulMatch[2] + ' '
+    view.dispatch({
+      changes: { from: pos, insert },
+      selection: { anchor: pos + insert.length }
+    })
+    return true
+  }
+
+  // Ordered list
+  if (olMatch) {
+    const contentAfter = text.slice(olMatch[0].length).trim()
+    if (contentAfter === '') {
+      // Empty numbered item → cancel, remove marker
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: olMatch[1] },
+        selection: { anchor: line.from + olMatch[1].length }
+      })
+      return true
+    }
+    // Continue numbered list: insert newline + same indent + next number + ". "
+    const nextNum = parseInt(olMatch[2], 10) + 1
+    const insert = '\n' + olMatch[1] + nextNum + '. '
+    view.dispatch({
+      changes: { from: pos, insert },
+      selection: { anchor: pos + insert.length }
+    })
+    return true
+  }
+
+  return false // Not a list line → let default Enter handle it
+}
+
 // ── Help modal ──
 function openHelp() {
   document.getElementById('help-overlay').classList.add('open')
@@ -460,6 +539,7 @@ function createEditor(content = '') {
           '.cm-content': { fontFamily: 'var(--font-display)', letterSpacing: 'var(--letter-spacing)' }
         }),
         keymap.of([
+          { key: 'Enter', run: (view) => handleEnter(view) },
           ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab,
           { key: 'Mod-n', run: () => { createNewFile(); return true } },
           { key: 'Mod-s', run: () => { saveFile(); return true } },

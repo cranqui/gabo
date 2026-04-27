@@ -28493,6 +28493,64 @@ ${text}</tr>
     }
     return true;
   }
+  function handleEnter(view) {
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    const text = line.text;
+    const cbMatch = text.match(/^(\s*)([-*+])\s\[[ x]\]\s/);
+    const ulMatch = text.match(/^(\s*)([-*+])\s/);
+    const olMatch = text.match(/^(\s*)(\d+)\.\s/);
+    if (cbMatch) {
+      const contentAfter = text.slice(cbMatch[0].length).trim();
+      if (contentAfter === "") {
+        view.dispatch({
+          changes: { from: line.from, to: line.to, insert: cbMatch[1] },
+          selection: { anchor: line.from + cbMatch[1].length }
+        });
+        return true;
+      }
+      const insert2 = "\n" + cbMatch[1] + "- [ ] ";
+      view.dispatch({
+        changes: { from: pos, insert: insert2 },
+        selection: { anchor: pos + insert2.length }
+      });
+      return true;
+    }
+    if (ulMatch) {
+      const contentAfter = text.slice(ulMatch[0].length).trim();
+      if (contentAfter === "") {
+        view.dispatch({
+          changes: { from: line.from, to: line.to, insert: ulMatch[1] },
+          selection: { anchor: line.from + ulMatch[1].length }
+        });
+        return true;
+      }
+      const insert2 = "\n" + ulMatch[1] + ulMatch[2] + " ";
+      view.dispatch({
+        changes: { from: pos, insert: insert2 },
+        selection: { anchor: pos + insert2.length }
+      });
+      return true;
+    }
+    if (olMatch) {
+      const contentAfter = text.slice(olMatch[0].length).trim();
+      if (contentAfter === "") {
+        view.dispatch({
+          changes: { from: line.from, to: line.to, insert: olMatch[1] },
+          selection: { anchor: line.from + olMatch[1].length }
+        });
+        return true;
+      }
+      const nextNum = parseInt(olMatch[2], 10) + 1;
+      const insert2 = "\n" + olMatch[1] + nextNum + ". ";
+      view.dispatch({
+        changes: { from: pos, insert: insert2 },
+        selection: { anchor: pos + insert2.length }
+      });
+      return true;
+    }
+    return false;
+  }
   function openHelp() {
     document.getElementById("help-overlay").classList.add("open");
   }
@@ -28523,6 +28581,7 @@ ${text}</tr>
             ".cm-content": { fontFamily: "var(--font-display)", letterSpacing: "var(--letter-spacing)" }
           }),
           keymap.of([
+            { key: "Enter", run: (view) => handleEnter(view) },
             ...defaultKeymap,
             ...historyKeymap,
             ...searchKeymap,
