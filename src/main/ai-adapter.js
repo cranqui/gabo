@@ -15,11 +15,12 @@ const http = require('http')
  * @param {Array}  options.messages - [{ role, content }]
  * @param {number} options.temperature
  * @param {number} options.maxTokens
+ * @param {AbortSignal} options.signal - AbortController signal to cancel the request
  * @param {Function} options.onChunk - called with each text delta
- * @param {Function} options.onDone - called when stream ends
+ * @param {Function} options.onDone - called when stream ends (guaranteed once)
  * @param {Function} options.onError - called on error
  */
-async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTokens, onChunk, onDone, onError }) {
+async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTokens, signal, onChunk, onDone, onError }) {
   // Ensure baseURL ends with / so new URL('chat/completions', ...) works correctly
   const normalizedBase = baseURL.endsWith('/') ? baseURL : baseURL + '/'
   const url = new URL('chat/completions', normalizedBase)
@@ -53,8 +54,19 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
   return new Promise((resolve, reject) => {
     const req = transport.request(reqOptions, (res) => {
       let buffer = ''
+      let done = false  // Guard against onDone firing twice (data: [DONE] + res 'end')
+
+      // If aborted, destroy the response
+      if (signal?.aborted) {
+        res.destroy()
+        return
+      }
 
       res.on('data', (chunk) => {
+        if (signal?.aborted) {
+          res.destroy()
+          return
+        }
         buffer += chunk.toString()
         // SSE lines are separated by \n\n
         const lines = buffer.split('\n')
@@ -65,7 +77,10 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
           const trimmed = line.trim()
           if (!trimmed || trimmed.startsWith(':')) continue  // skip comments/keepalives
           if (trimmed === 'data: [DONE]') {
-            onDone?.()
+            if (!done) {
+              done = true
+              onDone?.()
+            }
             resolve()
             return
           }
@@ -84,13 +99,19 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
       })
 
       res.on('end', () => {
-        onDone?.()
+        if (!done) {
+          done = true
+          onDone?.()
+        }
         resolve()
       })
 
       res.on('error', (err) => {
-        onError?.(err)
-        reject(err)
+        if (!done) {
+          done = true
+          onError?.(err)
+          reject(err)
+        }
       })
     })
 
@@ -98,6 +119,13 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
       onError?.(err)
       reject(err)
     })
+
+    // Wire up AbortController — abort the HTTP request if signalled
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        req.destroy(new Error('Request aborted'))
+      }, { once: true })
+    }
 
     req.write(body)
     req.end()

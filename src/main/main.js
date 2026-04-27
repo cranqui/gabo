@@ -222,8 +222,8 @@ function buildUserPrompt(action, selectedText) {
   return `${instruction}\n\n${selectedText}`
 }
 
-// Track in-flight AI request for cancellation
-let currentAiRequest = null
+// Track in-flight AI request for cancellation via AbortController
+let currentAiAbortController = null
 
 // AI: Send request (streaming)
 ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt }) => {
@@ -255,6 +255,8 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
   const userPrompt = customPrompt || buildUserPrompt(action, selectedText)
 
   try {
+    // Create AbortController so this request can be cancelled from ai-cancel
+    currentAiAbortController = new AbortController()
     await streamChat({
       baseURL: config.baseURL,
       apiKey: config.apiKey,
@@ -265,6 +267,7 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
       ],
       temperature: config.temperature,
       maxTokens: config.maxTokens,
+      signal: currentAiAbortController.signal,
       onChunk: (text) => {
         event.sender.send('ai-chunk', text)
       },
@@ -276,7 +279,12 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
       }
     })
   } catch (err) {
-    event.sender.send('ai-error', err.message)
+    // Don't send error if the request was aborted (user cancelled)
+    if (err.message !== 'Request aborted') {
+      event.sender.send('ai-error', err.message)
+    }
+  } finally {
+    currentAiAbortController = null
   }
 })
 
@@ -324,9 +332,9 @@ ipcMain.handle('ai-test', async (event) => {
 
 // AI: Cancel in-flight request
 ipcMain.handle('ai-cancel', () => {
-  if (currentAiRequest) {
-    currentAiRequest.destroy()
-    currentAiRequest = null
+  if (currentAiAbortController) {
+    currentAiAbortController.abort()
+    currentAiAbortController = null
     return { ok: true }
   }
   return { ok: false }
