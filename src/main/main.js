@@ -252,7 +252,9 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
   }
 
   const systemPrompt = buildSystemPrompt(action)
-  const userPrompt = customPrompt || buildUserPrompt(action, selectedText)
+  const userPrompt = customPrompt
+    ? `${customPrompt}\n\n${selectedText}`
+    : buildUserPrompt(action, selectedText)
 
   try {
     // Create AbortController so this request can be cancelled from ai-cancel

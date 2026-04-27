@@ -28974,6 +28974,7 @@ ${text}</tr>
   var aiSelectionFrom = null;
   var aiSelectionTo = null;
   var aiCurrentAction = null;
+  var aiCurrentCustomPrompt = null;
   var aiIsStreaming = false;
   function openAiPanel() {
     if (editor) {
@@ -29021,6 +29022,7 @@ ${text}</tr>
   async function sendAiRequest(action, customPromptText) {
     if (aiIsStreaming) return;
     aiCurrentAction = action;
+    aiCurrentCustomPrompt = customPromptText || null;
     aiIsStreaming = true;
     aiResultText = "";
     let textToSend = aiOriginalText;
@@ -29130,7 +29132,7 @@ ${text}</tr>
   document.getElementById("ai-stop").addEventListener("click", aiStop);
   document.getElementById("ai-close").addEventListener("click", closeAiPanel);
   document.getElementById("ai-error-retry").addEventListener("click", () => {
-    sendAiRequest(aiCurrentAction);
+    sendAiRequest(aiCurrentAction, aiCurrentCustomPrompt || void 0);
   });
   document.getElementById("ai-overlay").addEventListener("click", (e) => {
     if (e.target === document.getElementById("ai-overlay")) closeAiPanel();

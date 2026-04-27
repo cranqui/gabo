@@ -907,6 +907,7 @@ let aiResultText = ''
 let aiSelectionFrom = null
 let aiSelectionTo = null
 let aiCurrentAction = null
+let aiCurrentCustomPrompt = null
 let aiIsStreaming = false
 
 function openAiPanel() {
@@ -963,6 +964,7 @@ function closeAiPanel() {
 async function sendAiRequest(action, customPromptText) {
   if (aiIsStreaming) return
   aiCurrentAction = action
+  aiCurrentCustomPrompt = customPromptText || null
   aiIsStreaming = true
   aiResultText = ''
 
@@ -1088,7 +1090,7 @@ document.getElementById('ai-discard').addEventListener('click', aiDiscard)
 document.getElementById('ai-stop').addEventListener('click', aiStop)
 document.getElementById('ai-close').addEventListener('click', closeAiPanel)
 document.getElementById('ai-error-retry').addEventListener('click', () => {
-  sendAiRequest(aiCurrentAction)
+  sendAiRequest(aiCurrentAction, aiCurrentCustomPrompt || undefined)
 })
 document.getElementById('ai-overlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('ai-overlay')) closeAiPanel()
