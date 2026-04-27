@@ -316,6 +316,7 @@ ipcMain.handle('ai-request', async (event, { action, selectedText, customPrompt 
     }
     event.sender.send('ai-error', msg)
   } finally {
+    clearTimeout(chunkTimer)
     currentAiAbortController = null
   }
 })

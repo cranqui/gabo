@@ -136,7 +136,8 @@ async function streamChat({ baseURL, apiKey, model, messages, temperature, maxTo
     })
 
     req.on('error', (err) => {
-      onError?.(err)
+      // Don't forward aborted requests — the catch block in main.js handles that
+      if (err.message === 'Request aborted') { resolve(); return }
       reject(err)
     })
 
