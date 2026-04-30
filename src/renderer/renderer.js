@@ -5,7 +5,7 @@
 // It uses ES module imports which esbuild handles.
 
 import { EditorView, keymap, ViewPlugin, Decoration, WidgetType } from '@codemirror/view'
-import { EditorState, StateField, StateEffect, Transaction } from '@codemirror/state'
+import { EditorState, StateField, StateEffect, Transaction, Compartment } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
@@ -41,6 +41,11 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
 
 // ── Effects ──
 const toggleFocusMode = StateEffect.define()
+const focusModeCompartment = new Compartment()
+const focusModeTheme = EditorView.baseTheme({
+  '&.cm-editor .cm-line': { transition: 'opacity 0.3s ease' },
+  '&.cm-editor .cm-line.cm-dimmed-line': { opacity: 'var(--focus-dim-opacity) !important' },
+})
 const toggleMdModeEffect = StateEffect.define()
 
 const focusModeField = StateField.define({
@@ -563,6 +568,7 @@ function createEditor(content = '') {
         syntaxHidingPlugin,
         headingLinePlugin,
         focusModePlugin,
+        focusModeCompartment.of([]),
         typewriterScroll,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -590,10 +596,14 @@ function createEditor(content = '') {
 // ── Focus Mode ──
 function toggleFocus() {
   focusModeOn = !focusModeOn
-  if (editor) editor.dispatch({ effects: toggleFocusMode.of(focusModeOn) })
-  const cmEditor = document.querySelector('.cm-editor')
-  if (cmEditor) cmEditor.classList.toggle('focus-mode', focusModeOn)
-  if (editor && !focusModeOn) editor.focus()
+  if (editor) {
+    editor.dispatch({
+      effects: [
+        toggleFocusMode.of(focusModeOn),
+        focusModeCompartment.reconfigure(focusModeOn ? focusModeTheme : [])
+      ]
+    })
+  }
 }
 
 // ── MD Mode toggle ──

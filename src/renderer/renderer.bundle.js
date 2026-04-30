@@ -28137,6 +28137,11 @@ ${text}</tr>
     }
   });
   var toggleFocusMode = StateEffect.define();
+  var focusModeCompartment = new Compartment();
+  var focusModeTheme = EditorView.baseTheme({
+    "&.cm-editor .cm-line": { transition: "opacity 0.3s ease" },
+    "&.cm-editor .cm-line.cm-dimmed-line": { opacity: "var(--focus-dim-opacity) !important" }
+  });
   var toggleMdModeEffect = StateEffect.define();
   var focusModeField = StateField.define({
     create: () => false,
@@ -28626,6 +28631,7 @@ ${text}</tr>
           syntaxHidingPlugin,
           headingLinePlugin,
           focusModePlugin,
+          focusModeCompartment.of([]),
           typewriterScroll,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
@@ -28652,10 +28658,14 @@ ${text}</tr>
   }
   function toggleFocus() {
     focusModeOn = !focusModeOn;
-    if (editor) editor.dispatch({ effects: toggleFocusMode.of(focusModeOn) });
-    const cmEditor = document.querySelector(".cm-editor");
-    if (cmEditor) cmEditor.classList.toggle("focus-mode", focusModeOn);
-    if (editor && !focusModeOn) editor.focus();
+    if (editor) {
+      editor.dispatch({
+        effects: [
+          toggleFocusMode.of(focusModeOn),
+          focusModeCompartment.reconfigure(focusModeOn ? focusModeTheme : [])
+        ]
+      });
+    }
   }
   function toggleMdMode() {
     mdModeOn = !mdModeOn;
