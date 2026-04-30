@@ -17,22 +17,5 @@ contextBridge.exposeInMainWorld('gaboAPI', {
   onMenuFocus: (cb) => { ipcRenderer.removeAllListeners('menu-focus'); ipcRenderer.on('menu-focus', cb) },
   onMenuPreview: (cb) => { ipcRenderer.removeAllListeners('menu-preview'); ipcRenderer.on('menu-preview', cb) },
   onMenuZen: (cb) => { ipcRenderer.removeAllListeners('menu-zen'); ipcRenderer.on('menu-zen', cb) },
-  onMenuDarkMode: (cb) => { ipcRenderer.removeAllListeners('menu-dark-mode'); ipcRenderer.on('menu-dark-mode', cb) },
-
-  // ── AI Integration ──
-  aiRequest: (action, selectedText, customPrompt, docContext) => ipcRenderer.invoke('ai-request', { action, selectedText, customPrompt, docContext }),
-  aiRequestVariations: (action, selectedText, customPrompt, docContext) => ipcRenderer.invoke('ai-request-variations', { action, selectedText, customPrompt, docContext }),
-  aiGetConfig: () => ipcRenderer.invoke('ai-get-config'),
-  aiSaveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),
-  aiTest: () => ipcRenderer.invoke('ai-test'),
-  aiCancel: () => ipcRenderer.invoke('ai-cancel'),
-  aiListModels: () => ipcRenderer.invoke('ai-list-models'),
-  onAiChunk: (cb) => { ipcRenderer.removeAllListeners('ai-chunk'); ipcRenderer.on('ai-chunk', (_, text) => cb(text)) },
-  onAiDone: (cb) => { ipcRenderer.removeAllListeners('ai-done'); ipcRenderer.on('ai-done', () => cb()) },
-  onAiError: (cb) => { ipcRenderer.removeAllListeners('ai-error'); ipcRenderer.on('ai-error', (_, err) => cb(err)) },
-  onAiVariationChunk: (cb) => { ipcRenderer.removeAllListeners('ai-variation-chunk'); ipcRenderer.on('ai-variation-chunk', (_, data) => cb(data)) },
-  onAiVariationDone: (cb) => { ipcRenderer.removeAllListeners('ai-variation-done'); ipcRenderer.on('ai-variation-done', (_, data) => cb(data)) },
-  onAiVariationError: (cb) => { ipcRenderer.removeAllListeners('ai-variation-error'); ipcRenderer.on('ai-variation-error', (_, data) => cb(data)) },
-  onMenuAi: (cb) => { ipcRenderer.removeAllListeners('menu-ai'); ipcRenderer.on('menu-ai', cb) },
-  onMenuSettings: (cb) => { ipcRenderer.removeAllListeners('menu-settings'); ipcRenderer.on('menu-settings', cb) }
+  onMenuDarkMode: (cb) => { ipcRenderer.removeAllListeners('menu-dark-mode'); ipcRenderer.on('menu-dark-mode', cb) }
 })
